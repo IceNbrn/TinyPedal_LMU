@@ -58,11 +58,11 @@ class Realtime(Overlay):
         self.prefix_pos_inclass = self.wcfg["prefix_position_in_class"].ljust(prefix_just)
 
         # Base style
-        self.setStyleSheet(self.set_qss(
+        base_style = self.set_qss(
             font_family=self.wcfg["font_name"],
             font_size=self.wcfg["font_size"],
             font_weight=self.wcfg["font_weight"])
-        )
+        self.setStyleSheet(f"{base_style}; border-radius: 2%")
 
         # Lap number
         if self.wcfg["show_lap_number"]:
@@ -125,6 +125,10 @@ class Realtime(Overlay):
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
+
+        if not self.state:
+            return
+
         if self.state.active:
 
             # Lap number

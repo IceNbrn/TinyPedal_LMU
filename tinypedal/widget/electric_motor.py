@@ -43,11 +43,11 @@ class Realtime(Overlay):
         bar_width = font_m.width * 8 + bar_padx
 
         # Base style
-        self.setStyleSheet(self.set_qss(
+        base_style = self.set_qss(
             font_family=self.wcfg["font_name"],
             font_size=self.wcfg["font_size"],
             font_weight=self.wcfg["font_weight"])
-        )
+        self.setStyleSheet(f"{base_style}; border-radius: 2%")
 
         # Motor temperature
         if self.wcfg["show_motor_temperature"]:
@@ -139,6 +139,10 @@ class Realtime(Overlay):
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
+
+        if not self.state:
+            return
+
         if self.state.active:
 
             # Motor temperature

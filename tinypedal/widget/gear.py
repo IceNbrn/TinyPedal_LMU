@@ -44,6 +44,7 @@ class Realtime(Overlay):
         )
         self.setFont(font)
 
+
         (font_speed, font_offset, limiter_width, gauge_width, gauge_height, gear_size, speed_size
          ) = self.set_gauge_size(font)
 
@@ -131,6 +132,10 @@ class Realtime(Overlay):
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
+
+        if not self.state:
+            return
+
         if self.state.active:
 
             # RPM reference

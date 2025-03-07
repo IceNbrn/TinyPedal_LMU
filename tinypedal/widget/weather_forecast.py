@@ -57,11 +57,11 @@ class Realtime(Overlay):
         self.bar_rain_height = max(self.wcfg["rain_chance_bar_height"], 1)
 
         # Base style
-        self.setStyleSheet(self.set_qss(
+        base_style = self.set_qss(
             font_family=self.wcfg["font_name"],
             font_size=self.wcfg["font_size"],
             font_weight=self.wcfg["font_weight"])
-        )
+        self.setStyleSheet(f"{base_style}; border-radius: 2%")
 
         # Config canvas
         self.pixmap_weather = create_weather_icon_set(icon_size)

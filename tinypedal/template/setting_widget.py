@@ -28,7 +28,7 @@ WIDGET_DEFAULT = {
         "update_interval": 20,
         "position_x": 140,
         "position_y": 293,
-        "opacity": 0.9,
+        "opacity": 1,
         "layout": 0,
         "font_name": "Consolas",
         "font_size": 15,

@@ -98,6 +98,9 @@ class Realtime(Overlay):
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
+        if not self.state:
+            return
+
         if self.state.active:
 
             if minfo.delta.lapTimeCurrent < self.freeze_duration:

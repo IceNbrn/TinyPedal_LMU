@@ -21,6 +21,8 @@ pylintrc
 *.csv
 *.fuel
 
+.idea
+
 # random file
 test*.py
 *.7z

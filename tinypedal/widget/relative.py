@@ -166,7 +166,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_player_time_gap"]),
                 self.set_qss(
                     fg_color=self.wcfg["font_color_nearest_time_gap"],
-                    bg_color=self.wcfg["bkg_color_nearest_time_gap"])
+                    bg_color=self.wcfg["bkg_color_nearest_time_gap"]),
             )
             self.nearest_time_gap = (
                 -max(self.wcfg["nearest_time_gap_threshold_behind"], 0),
@@ -318,6 +318,10 @@ class Realtime(Overlay):
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
+
+        if not self.state:
+            return
+
         if self.state.active:
 
             relative_list = minfo.relative.relative
@@ -360,7 +364,7 @@ class Realtime(Overlay):
                     self.update_lpt(self.bars_lpt[idx], temp_data[8])
                 # Position in class
                 if self.wcfg["show_position_in_class"]:
-                    self.update_pic(self.bars_pic[idx], temp_data[4])
+                    self.update_pic(self.bars_pic[idx], temp_data[4], temp_data[5])
                 # Vehicle class
                 if self.wcfg["show_class"]:
                     self.update_cls(self.bars_cls[idx], temp_data[5])
@@ -447,6 +451,7 @@ class Realtime(Overlay):
             else:
                 brand_name = "blank"
             target.setPixmap(self.set_brand_logo(brand_name))
+
             target.setStyleSheet(self.bar_style_brd[data[2]])
 
     def update_gap(self, target, data):
@@ -470,7 +475,10 @@ class Realtime(Overlay):
             else:
                 text = ""
             target.setText(text)
-            target.setStyleSheet(self.bar_style_gap[color_index])
+            target.setStyleSheet(f"{self.bar_style_gap[color_index]}"
+                                 f"border-top-right-radius: 3px;"
+                                 f"border-bottom-right-radius: 3px;"
+                                 )
 
     def update_lpt(self, target, data):
         """Vehicle laptime"""
@@ -487,16 +495,25 @@ class Realtime(Overlay):
             target.setText(text)
             target.setStyleSheet(self.bar_style_lpt[color_index])
 
-    def update_pic(self, target, data):
+    def update_pic(self, target, data, car_class):
         """Position in class"""
         if target.last != data:
             target.last = data
+            text, bg_color = self.set_class_style(car_class)
+
             if data[0] != "":
                 text = f"{data[0]:02d}"
             else:
                 text = ""
-            target.setText(text)
-            target.setStyleSheet(self.bar_style_pic[data[1]])
+
+
+            target.setText(text[:self.cls_width])
+            target.setStyleSheet(
+                f"color:{self.wcfg['font_color_class']};"
+                f"background:{bg_color};"
+                f"border-top-left-radius: 5%;"
+                f"border-bottom-left-radius: 5%;"
+            )
 
     def update_cls(self, target, data):
         """Vehicle class"""
@@ -505,7 +522,14 @@ class Realtime(Overlay):
             text, bg_color = self.set_class_style(data)
             target.setText(text[:self.cls_width])
             target.setStyleSheet(
-                f"color:{self.wcfg['font_color_class']};background:{bg_color};")
+                f"color:{bg_color};"
+                f"background:{self.wcfg['font_color_class']};"
+                f"border-color: {bg_color};"
+                f"border-width: 2px;"
+                f"border-style: solid;"
+                f"border-top-right-radius: 5%;"
+                f"border-bottom-right-radius: 5%;"
+            )
 
     def update_pit(self, target, data):
         """Vehicle in pit"""
@@ -516,7 +540,10 @@ class Realtime(Overlay):
             else:
                 text = ""
             target.setText(text)
-            target.setStyleSheet(self.bar_style_pit[data])
+            target.setStyleSheet(f"{self.bar_style_pit[data]}"
+                                 f"border-radius: 3px;"
+                                 f"margin-left: 2px;"
+                                 )
 
     def update_tcp(self, target, data):
         """Tyre compound index"""

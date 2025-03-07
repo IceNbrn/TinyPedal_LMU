@@ -129,6 +129,9 @@ class Realtime(Overlay):
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
+        if not self.state:
+            return
+
         if self.state.active:
 
             session_time = api.read.session.remaining()
