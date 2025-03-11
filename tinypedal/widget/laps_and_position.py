@@ -23,6 +23,7 @@ Laps and position Widget
 from .. import calculation as calc
 from ..api_control import api
 from ._base import Overlay
+from .. import formatter as fmt
 
 
 class Realtime(Overlay):
@@ -156,7 +157,21 @@ class Realtime(Overlay):
 
                     # Position in class
                     if self.wcfg["show_position_in_class"]:
+
                         plr_class = api.read.vehicle.class_name()
+
+                        text, text_color = self.set_class_style(plr_class)
+                        current_style_sheet = self.bar_pos_inclass.styleSheet()
+
+                        current_style_sheet += (f"color: {text_color};"
+                                                f"border-color: {text_color};"
+                                                f"border-width: 2%;"
+                                                f"border-style: solid;"
+                                                f"border-radius: 5%;")
+
+                        self.bar_pos_inclass.setStyleSheet(current_style_sheet)
+
+
                         total_class_vehicle = 0
                         place_higher = 0
 
@@ -169,7 +184,7 @@ class Realtime(Overlay):
                         pos_in_class = total_class_vehicle - place_higher
                         self.update_position(
                             self.bar_pos_inclass, pos_in_class, total_class_vehicle,
-                            self.prefix_pos_inclass
+                            text
                         )
 
     # GUI update methods
@@ -188,3 +203,12 @@ class Realtime(Overlay):
         """Driver place & total vehicles"""
         text_pos = f"{place:02.0f}/{total:02.0f}"
         target.setText(f"{prefix}{text_pos: >{self.just_right}}")
+
+    def set_class_style(self, class_name: str):
+        """Compare vehicle class name with user defined dictionary"""
+        style = self.cfg.user.classes.get(class_name, None)
+        if style is not None:
+            return style["alias"], style["color"]
+        if class_name and self.wcfg["show_random_color_for_unknown_class"]:
+            return class_name, fmt.random_color_class(class_name)
+        return class_name, self.wcfg["bkg_color_class"]

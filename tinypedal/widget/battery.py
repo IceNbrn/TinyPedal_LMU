@@ -133,6 +133,8 @@ class Realtime(Overlay):
                 battery_drain = minfo.hybrid.batteryDrain
                 battery_regen = minfo.hybrid.batteryRegen
 
+            print(f"battery_drain: {minfo.hybrid.batteryDrain} || battery_regen: {minfo.hybrid.batteryRegen}")
+
             if self.wcfg["show_battery_drain"]:
                 self.update_drain(self.bar_drain, battery_drain)
 

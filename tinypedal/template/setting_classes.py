@@ -23,20 +23,20 @@ Default classes template
 
 CLASSES_DEFAULT = {
     "Hyper": {
-        "alias": "LMH",
-        "color": "#FF4400",
+        "alias": "HY",
+        "color": "#E21E19",
     },
     "Hypercar": {
-        "alias": "LMH",
-        "color": "#FF4400",
+        "alias": "HY",
+        "color": "#E21E19",
     },
     "LMP1": {
         "alias": "LMP1",
         "color": "#FF00AA",
     },
     "LMP2": {
-        "alias": "LMP2",
-        "color": "#0088FF",
+        "alias": "P2",
+        "color": "#005096",
     },
     "LMP3": {
         "alias": "LMP3",
@@ -44,11 +44,11 @@ CLASSES_DEFAULT = {
     },
     "GTE": {
         "alias": "GTE",
-        "color": "#00CC44",
+        "color": "#F08C00",
     },
     "GT3": {
         "alias": "GT3",
-        "color": "#229900",
+        "color": "#F08C00",
     },
     "DPi": {
         "alias": "DPi",

@@ -88,6 +88,9 @@ class Realtime(Overlay):
 
             row_idx_upper = 2 * self.wcfg["swap_upper_caption"]
             for index, text_caption in enumerate(caption_upper):
+
+                bar_style_desc += "border-radius: 15px;"
+
                 cap_temp = self.set_qlabel(
                     text=text_caption,
                     style=bar_style_desc,
@@ -177,6 +180,7 @@ class Realtime(Overlay):
             fg_color=self.wcfg["font_color_ratio"],
             bg_color=self.wcfg["bkg_color_ratio"]
         )
+        bar_style_ratio += "border-top-right-radius: 4%;"
         self.bar_ratio = self.set_qlabel(
             text=text_def,
             style=bar_style_ratio,
@@ -189,6 +193,7 @@ class Realtime(Overlay):
             fg_color=self.wcfg["font_color_early"],
             bg_color=self.wcfg["bkg_color_early"]
         )
+        bar_style_early += "border-bottom-left-radius: 4%;"
         self.bar_early = self.set_qlabel(
             text=text_def,
             style=bar_style_early,
@@ -237,6 +242,8 @@ class Realtime(Overlay):
             fg_color=self.wcfg["font_color_pits"],
             bg_color=self.wcfg["bkg_color_pits"]
         )
+        bar_style_pits += "border-top-left-radius: 4%;"
+
         self.bar_pits = self.set_qlabel(
             text=text_def,
             style=bar_style_pits,
@@ -249,6 +256,7 @@ class Realtime(Overlay):
             fg_color=self.wcfg["font_color_bias"],
             bg_color=self.wcfg["bkg_color_bias"]
         )
+        bar_style_bias += "border-bottom-right-radius: 4%;"
         self.bar_bias = self.set_qlabel(
             text=text_def,
             style=bar_style_bias,

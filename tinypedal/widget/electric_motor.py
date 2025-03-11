@@ -164,7 +164,6 @@ class Realtime(Overlay):
             if self.wcfg["show_torque"]:
                 torque = round(api.read.emotor.torque(), 2)
                 self.update_torque(self.bar_torque, torque)
-
             # Motor power
             if self.wcfg["show_power"]:
                 power = round(calc.engine_power(
