@@ -387,11 +387,11 @@ class Realtime(Overlay):
                     self.update_lpt(self.bars_lpt[idx], laptime, veh_info.isClassFastestLastLap, hi_player, state)
                 # Position in class
                 if self.wcfg["show_position_in_class"]:
-                    self.update_pic(self.bars_pic[idx], veh_info.positionInClass, veh_info.vehicleClass, hi_player, state)
+                    self.update_pic(self.bars_pic[idx], veh_info.vehicleClass, veh_info.positionInClass, hi_player, state)
                 # Vehicle class
                 if self.wcfg["show_class"]:
                     self.update_cls(self.bars_cls[idx], veh_info.vehicleClass, state)
-                # Vehicle in pit
+                # Vehicle 1 = {QLabel} <PySide2.QtWidgets.QLabel(0x20883151350) at 0x0000020884D5DAC0>in pit
                 if self.wcfg["show_pit_status"]:
                     self.update_pit(self.bars_pit[idx], veh_info.inPit, state)
                 # Tyre compound index
@@ -548,7 +548,7 @@ class Realtime(Overlay):
             target.setText(text)
             target.setStyleSheet(self.bar_style_lpt[color_index])
 
-    def update_pic(self, target, *data, car_class):
+    def update_pic(self, target, car_class, *data):
         """Position in class"""
         if target.last != data:
             target.last = data
@@ -593,7 +593,7 @@ class Realtime(Overlay):
             else:
                 text = ""
             target.setText(text)
-            target.setStyleSheet(f"{self.bar_style_pit[data]}"
+            target.setStyleSheet(f"{self.bar_style_pit[data[0]]}"
                                  f"border-radius: 3px;"
                                  f"margin-left: 2px;"
                                  )
