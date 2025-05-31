@@ -33,7 +33,6 @@ class DataModule:
     """Data module base"""
 
     def __init__(self, config: Setting, module_name: str):
-        super().__init__()
         self.module_name = module_name
         self.closed = True
         self.state: OverlayState = octrl.state
@@ -60,13 +59,13 @@ class DataModule:
             self.closed = False
             self._event.clear()
             threading.Thread(target=self.update_data, daemon=True).start()
-            logger.info("ACTIVE: %s", self.module_name.replace("_", " "))
+            logger.info("ENABLED: %s", self.module_name.replace("_", " "))
 
     def stop(self):
         """Stop update thread"""
         self._event.set()
         self.closed = True
-        logger.info("CLOSED: %s", self.module_name.replace("_", " "))
+        logger.info("DISABLED: %s", self.module_name.replace("_", " "))
 
     def update_data(self):
         """Update module data, rewrite in child class"""

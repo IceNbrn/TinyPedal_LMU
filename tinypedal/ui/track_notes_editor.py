@@ -83,8 +83,8 @@ def set_file_path(notes_type: str, filename: str = "") -> str:
 class TrackNotesEditor(BaseEditor):
     """Track & pace notes editor"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent):
+        super().__init__(parent)
         self.set_utility_title("Track Notes Editor")
 
         self.notes_type = None
@@ -94,12 +94,12 @@ class TrackNotesEditor(BaseEditor):
         self._verify_enabled = True
 
         # Set status bar
-        self.status_bar = QStatusBar()
+        self.status_bar = QStatusBar(self)
 
         # Set panels
         self.trackmap_panel = self.set_layout_trackmap()
         self.editor_panel = self.set_layout_editor()
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Horizontal, self)
         splitter.setHandleWidth(5)
         splitter.addWidget(self.trackmap_panel)
         splitter.addWidget(self.editor_panel)
@@ -128,14 +128,14 @@ class TrackNotesEditor(BaseEditor):
 
     def set_layout_trackmap(self):
         """Set track map panel"""
-        self.trackmap = MapView()
+        self.trackmap = MapView(self)
         self.trackmap.reloaded.connect(self.mark_positions_on_map)
 
         layout_map_wrap = QVBoxLayout()
         layout_map_wrap.addWidget(self.trackmap)
         layout_map_wrap.setContentsMargins(0,0,0,0)
 
-        frame_trackmap = QFrame()
+        frame_trackmap = QFrame(self)
         frame_trackmap.setLayout(layout_map_wrap)
         frame_trackmap.setFrameShape(QFrame.StyledPanel)
 
@@ -145,7 +145,7 @@ class TrackNotesEditor(BaseEditor):
         layout_trackmap.addLayout(self.trackmap.set_control_layout())
         layout_trackmap.setContentsMargins(0,0,0,0)
 
-        trackmap_panel = QFrame()
+        trackmap_panel = QFrame(self)
         trackmap_panel.setMinimumSize(500, 500)
         trackmap_panel.setLayout(layout_trackmap)
         return trackmap_panel
@@ -271,7 +271,7 @@ class TrackNotesEditor(BaseEditor):
         layout_editor.addLayout(layout_button)
         layout_editor.setContentsMargins(0,0,0,0)
 
-        editor_panel = QFrame()
+        editor_panel = QFrame(self)
         editor_panel.setMinimumSize(500, 500)
         editor_panel.setLayout(layout_editor)
         return editor_panel
@@ -426,7 +426,7 @@ class TrackNotesEditor(BaseEditor):
             QMessageBox.warning(self, "Error", msg_text)
             return
 
-        if not self.confirm_operation(f"Set position at <b>{position}</b> {source}?"):
+        if not self.confirm_operation(message=f"Set position at <b>{position}</b> {source}?"):
             return
 
         pos_curr = round(position, DECIMALS)
@@ -464,7 +464,7 @@ class TrackNotesEditor(BaseEditor):
             QMessageBox.warning(self, "Error", "No data selected.")
             return
 
-        if not self.confirm_operation("<b>Delete selected rows?</b>"):
+        if not self.confirm_operation(message="<b>Delete selected rows?</b>"):
             return
 
         for row_index in sorted(selected_rows, reverse=True):
@@ -569,7 +569,7 @@ class TrackNotesEditor(BaseEditor):
         menu.addAction("Delete Rows")
         return menu
 
-    def open_context_menu(self, position):
+    def open_context_menu(self, position: QPoint):
         """Open context menu"""
         if not self.table_notes.itemAt(position):
             return
@@ -634,8 +634,8 @@ class TrackNotesEditor(BaseEditor):
 class MetaDataEditor(BaseDialog):
     """Metadata editor"""
 
-    def __init__(self, master, metadata: dict):
-        super().__init__(master)
+    def __init__(self, parent, metadata: dict):
+        super().__init__(parent)
         self.setWindowTitle("Metadata Info")
 
         self.metadata = metadata

@@ -20,33 +20,29 @@
 Tray icon
 """
 
-from PySide2.QtGui import QIcon
 from PySide2.QtWidgets import QSystemTrayIcon
 
-from ..const import APP_NAME, VERSION, APP_ICON
+from ..const import APP_NAME, VERSION
 from .menu import OverlayMenu
 
 
 class TrayIcon(QSystemTrayIcon):
-    """System tray icon
+    """System tray icon & menu"""
 
-    Activate overlay widgets via system tray icon.
-    """
-
-    def __init__(self, master):
-        super().__init__()
-        self.master = master
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.master = parent
 
         # Config tray icon
-        self.setIcon(QIcon(APP_ICON))
+        self.setIcon(parent.windowIcon())
         self.setToolTip(f"{APP_NAME} v{VERSION}")
         self.activated.connect(self.active_doubleclick)
 
         # Create tray menu
-        menu = OverlayMenu("Overlay", self.master, True)
+        menu = OverlayMenu("Overlay", parent, True)
         self.setContextMenu(menu)
 
-    def active_doubleclick(self, active_reason):
+    def active_doubleclick(self, active_reason: QSystemTrayIcon.ActivationReason):
         """Active on doubleclick"""
         if active_reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.master.show_app()

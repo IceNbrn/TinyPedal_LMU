@@ -35,7 +35,7 @@ from PySide2.QtWidgets import (
 )
 
 from ..api_control import api
-from ..setting import cfg, copy_setting
+from ..setting import ConfigType, cfg, copy_setting
 from ..module_control import wctrl
 from .. import formatter as fmt
 from ._common import (
@@ -51,8 +51,8 @@ HEADER_CLASSES = "Class name","Alias name","Color"
 class VehicleClassEditor(BaseEditor):
     """Vehicle class editor"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent):
+        super().__init__(parent)
         self.set_utility_title("Vehicle Class Editor")
         self.setMinimumSize(400, 400)
 
@@ -65,8 +65,9 @@ class VehicleClassEditor(BaseEditor):
         self.table_classes.verticalHeader().setVisible(False)
         self.table_classes.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table_classes.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        font_w = self.fontMetrics().averageCharWidth()
         self.table_classes.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table_classes.setColumnWidth(2, 80)
+        self.table_classes.setColumnWidth(2, font_w * 14)
         self.table_classes.cellChanged.connect(self.set_modified)
         self.refresh_table()
         self.set_unmodified()
@@ -129,7 +130,7 @@ class VehicleClassEditor(BaseEditor):
 
     def __add_option_color(self, key):
         """Color string"""
-        color_edit = DoubleClickEdit(mode="color", init=key)
+        color_edit = DoubleClickEdit(self, mode="color", init=key)
         color_edit.setMaxLength(9)
         color_edit.setValidator(QVAL_COLOR)
         color_edit.textChanged.connect(self.set_modified)
@@ -174,7 +175,7 @@ class VehicleClassEditor(BaseEditor):
             QMessageBox.warning(self, "Error", "No data selected.")
             return
 
-        if not self.confirm_operation("<b>Delete selected rows?</b>"):
+        if not self.confirm_operation(message="<b>Delete selected rows?</b>"):
             return
 
         for row_index in sorted(selected_rows, reverse=True):
@@ -187,10 +188,7 @@ class VehicleClassEditor(BaseEditor):
             "Are you sure you want to reset class preset to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
-        reset_msg = QMessageBox.question(
-            self, "Reset Class Preset", msg_text,
-            buttons=QMessageBox.Yes | QMessageBox.No)
-        if reset_msg == QMessageBox.Yes:
+        if self.confirm_operation(message=msg_text):
             self.classes_temp = copy_setting(cfg.default.classes)
             self.set_modified()
             self.refresh_table()
@@ -220,7 +218,7 @@ class VehicleClassEditor(BaseEditor):
         """Save setting"""
         self.update_classes_temp()
         cfg.user.classes = copy_setting(self.classes_temp)
-        cfg.save(0, filetype="classes")
+        cfg.save(0, cfg_type=ConfigType.CLASSES)
         while cfg.is_saving:  # wait saving finish
             time.sleep(0.01)
         wctrl.reload()

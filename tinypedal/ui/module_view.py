@@ -65,13 +65,13 @@ QSS_BUTTON_CONFIG = (
 class ModuleList(QWidget):
     """Module & widget list view"""
 
-    def __init__(self, module_control: ModuleControl):
+    def __init__(self, parent, module_control: ModuleControl):
         """Initialize module list setting
 
         Args:
             module_control: Module control (or widget) object.
         """
-        super().__init__()
+        super().__init__(parent)
         self.module_control = module_control
 
         # Label
@@ -147,7 +147,9 @@ class ModuleList(QWidget):
             f"{self.module_control.type_id}s?"
         )
         confirm_msg = QMessageBox.question(
-            self, "Confirm", msg_text, buttons=QMessageBox.Yes | QMessageBox.No
+            self, "Confirm", msg_text,
+            buttons=QMessageBox.Yes | QMessageBox.No,
+            defaultButton=QMessageBox.No,
         )
         return confirm_msg == QMessageBox.Yes
 
@@ -155,15 +157,15 @@ class ModuleList(QWidget):
 class ListItemControl(QWidget):
     """List box item control"""
 
-    def __init__(self, master, module_name: str, module_control: ModuleControl):
+    def __init__(self, parent, module_name: str, module_control: ModuleControl):
         """Initialize list box setting
 
         Args:
             module_name: Module (or widget) name string.
             module_control: Module control (or widget) object.
         """
-        super().__init__()
-        self.master = master
+        super().__init__(parent)
+        self.master = parent
         self.module_name = module_name
         self.module_control = module_control
         self.allow_toggle = False
@@ -218,7 +220,7 @@ class ListItemControl(QWidget):
     def open_config_dialog(self):
         """Config dialog"""
         _dialog = UserConfig(
-            master=self.master,
+            parent=self.master,
             key_name=self.module_name,
             cfg_type=self.module_control.type_id,
             user_setting=cfg.user.setting,

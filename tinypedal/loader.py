@@ -23,7 +23,8 @@ Loader function
 import logging
 import signal
 
-from .setting import cfg
+from .file_constants import FileExt
+from .setting import ConfigType, cfg
 from .api_control import api
 from .module_control import mctrl, wctrl
 from .overlay_control import octrl
@@ -36,9 +37,9 @@ def start():
     logger.info("STARTING............")
     # 1 load global
     cfg.load_global()
-    cfg.save(filetype="config")
+    cfg.save(cfg_type=ConfigType.CONFIG)
     # 2 load preset
-    cfg.filename.setting = f"{cfg.preset_list[0]}.json"
+    cfg.filename.setting = f"{cfg.preset_list[0]}{FileExt.JSON}"
     cfg.load()
     cfg.save()
     # 3 start api

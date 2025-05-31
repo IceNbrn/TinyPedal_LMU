@@ -56,6 +56,7 @@ class Realtime(Overlay):
             self.wcfg["rpm_color_over_rev"], # 3
         )
         self.bar_gauge = GearGaugeBar(
+            self,
             width=gauge_width,
             height=gauge_height,
             font_speed=font_speed,
@@ -73,6 +74,7 @@ class Realtime(Overlay):
         # RPM bar
         if self.wcfg["show_rpm_bar"]:
             self.bar_rpmbar = ProgressBar(
+                self,
                 width=gauge_width,
                 height=max(self.wcfg["rpm_bar_height"], 1),
                 input_color=self.wcfg["rpm_bar_color"],
@@ -91,6 +93,7 @@ class Realtime(Overlay):
                 self.wcfg["battery_bar_color_regen"],
             )
             self.bar_battbar = ProgressBar(
+                self,
                 width=gauge_width,
                 height=max(self.wcfg["battery_bar_height"], 1),
                 input_color=self.wcfg["battery_bar_color"],
@@ -106,6 +109,7 @@ class Realtime(Overlay):
         # Speed limiter
         if self.wcfg["show_speed_limiter"]:
             self.bar_limiter = TextBar(
+                self,
                 width=limiter_width,
                 height=gauge_height,
                 font_offset=font_offset,

@@ -27,7 +27,6 @@ from collections.abc import Callable
 
 from PySide2.QtCore import Qt, QRegularExpression, QLocale
 from PySide2.QtGui import (
-    QIcon,
     QColor,
     QRegularExpressionValidator,
     QIntValidator,
@@ -55,8 +54,8 @@ from PySide2.QtWidgets import (
 )
 
 from .. import validator as val
-from .. import formatter as fmt
-from ..const import APP_NAME, APP_ICON
+from ..const import APP_NAME
+from ..file_constants import FileFilter
 
 # Validator
 QLOC_NUMBER = QLocale(QLocale.C)
@@ -89,10 +88,9 @@ color_pick_history = deque(
 class BaseDialog(QDialog):
     """Base dialog class"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent):
+        super().__init__(parent)
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
-        self.setWindowIcon(QIcon(APP_ICON))
         self.setAttribute(Qt.WA_DeleteOnClose, True)
 
     def set_config_title(self, option_name: str, preset_name: str):
@@ -103,12 +101,21 @@ class BaseDialog(QDialog):
         """Set utility dialog title"""
         self.setWindowTitle(f"{name} - {APP_NAME}")
 
+    def confirm_operation(self, title: str = "Confirm", message: str = "") -> bool:
+        """Confirm operation"""
+        confirm = QMessageBox.question(
+            self, title, message,
+            buttons=QMessageBox.Yes | QMessageBox.No,
+            defaultButton=QMessageBox.No,
+        )
+        return confirm == QMessageBox.Yes
+
 
 class BaseEditor(BaseDialog):
     """Base editor class"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent):
+        super().__init__(parent)
         self._is_modified = False
         self._is_rejected = False
 
@@ -126,13 +133,6 @@ class BaseEditor(BaseDialog):
             return self.confirm_discard()
 
         return confirm == QMessageBox.Discard
-
-    def confirm_operation(self, message: str) -> bool:
-        """Confirm operation"""
-        confirm = QMessageBox.question(
-            self, "Confirm", message,
-            buttons=QMessageBox.Yes | QMessageBox.No)
-        return confirm == QMessageBox.Yes
 
     def is_modified(self) -> bool:
         """Is modified"""
@@ -194,8 +194,8 @@ class BaseEditor(BaseDialog):
 class BatchOffset(BaseDialog):
     """Batch offset"""
 
-    def __init__(self, master, offset_func: Callable):
-        super().__init__(master)
+    def __init__(self, parent, offset_func: Callable):
+        super().__init__(parent)
         self.setWindowTitle("Batch Offset")
         self.decimals = 0
         self.value_range = 0, 1
@@ -273,12 +273,12 @@ class TableBatchReplace(BaseDialog):
     """Table batch replace"""
 
     def __init__(
-        self, master, table_selector: dict, table_data: QTableWidget):
+        self, parent, table_selector: dict, table_data: QTableWidget):
         """
         Args:
             table_selector: table selector dictionary. key=column name, value=column index.
         """
-        super().__init__(master)
+        super().__init__(parent)
         self.table_selector = table_selector
         self.table_data = table_data
         self.setWindowTitle("Batch Replace")
@@ -371,14 +371,14 @@ class TableBatchReplace(BaseDialog):
 class DoubleClickEdit(QLineEdit):
     """Line edit with double click dialog trigger"""
 
-    def __init__(self, mode: str, init: str):
+    def __init__(self, parent, mode: str, init: str):
         """Set dialog mode and initial value
 
         Args:
             mode: "color", "path".
             init: initial value.
         """
-        super().__init__()
+        super().__init__(parent)
         self.open_mode = mode
         self.init_value = init
 
@@ -428,8 +428,7 @@ class DoubleClickEdit(QLineEdit):
 
     def open_dialog_image(self):
         """Open image file name dialog"""
-        path_selected = QFileDialog.getOpenFileName(
-            self, dir=self.init_value, filter=fmt.qfile_filter(".png", "PNG files"))[0]
+        path_selected = QFileDialog.getOpenFileName(self, dir=self.init_value, filter=FileFilter.PNG)[0]
         if val.image_file(path_selected):
             self.setText(path_selected)
             self.init_value = path_selected
@@ -477,5 +476,19 @@ class QTableFloatItem(QTableWidgetItem):
             self.setText(str(self._value))
 
     def __lt__(self, other):
-        """Sort value"""
+        """Sort by value"""
         return self.value() < other.value()
+
+
+class QTableNumTextItem(QTableWidgetItem):
+    """QTable numeric sortable text type item"""
+
+    def __init__(self, value: float, text: str):
+        """Set numeric value & string text"""
+        super().__init__()
+        self.value = value
+        self.setText(text)
+
+    def __lt__(self, other):
+        """Sort by value"""
+        return self.value < other.value

@@ -42,8 +42,9 @@ from PySide2.QtWidgets import (
 )
 
 from ..api_control import api
-from ..setting import cfg, copy_setting
+from ..setting import ConfigType, cfg, copy_setting
 from ..module_control import wctrl
+from ..file_constants import FileFilter
 from ._common import (
     BaseEditor,
     TableBatchReplace,
@@ -58,8 +59,8 @@ logger = logging.getLogger(__name__)
 class VehicleBrandEditor(BaseEditor):
     """Vehicle brand editor"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent):
+        super().__init__(parent)
         self.set_utility_title("Vehicle Brand Editor")
         self.setMinimumSize(600, 500)
 
@@ -199,22 +200,22 @@ class VehicleBrandEditor(BaseEditor):
 
     def import_from_file(self):
         """Import brand from file"""
-        veh_file_data = QFileDialog.getOpenFileName(self, filter="*.json")
-        if not veh_file_data[0]:
+        filename_full = QFileDialog.getOpenFileName(self, filter=FileFilter.JSON)[0]
+        if not filename_full:
             return
 
         try:
             # Limit import file size under 5120kb
-            if os.path.getsize(veh_file_data[0]) > 5120000:
+            if os.path.getsize(filename_full) > 5120000:
                 raise TypeError
             # Load JSON
-            with open(veh_file_data[0], "r", encoding="utf-8") as jsonfile:
+            with open(filename_full, "r", encoding="utf-8") as jsonfile:
                 dict_vehicles = json.load(jsonfile)
                 self.parse_brand_data(dict_vehicles)
 
         except (AttributeError, IndexError, KeyError, TypeError,
                 FileNotFoundError, ValueError, OSError):
-            logger.error("Failed importing %s", veh_file_data[0])
+            logger.error("Failed importing %s", filename_full)
             msg_text = "Cannot import selected file.<br><br>Invalid vehicle data file."
             QMessageBox.warning(self, "Error", msg_text)
 
@@ -281,7 +282,7 @@ class VehicleBrandEditor(BaseEditor):
             QMessageBox.warning(self, "Error", "No data selected.")
             return
 
-        if not self.confirm_operation("<b>Delete selected rows?</b>"):
+        if not self.confirm_operation(message="<b>Delete selected rows?</b>"):
             return
 
         for row_index in sorted(selected_rows, reverse=True):
@@ -294,10 +295,7 @@ class VehicleBrandEditor(BaseEditor):
             "Are you sure you want to reset brand preset to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
-        reset_msg = QMessageBox.question(
-            self, "Reset Brand Preset", msg_text,
-            buttons=QMessageBox.Yes | QMessageBox.No)
-        if reset_msg == QMessageBox.Yes:
+        if self.confirm_operation(message=msg_text):
             self.brands_temp = copy_setting(cfg.default.brands)
             self.set_modified()
             self.refresh_table()
@@ -323,7 +321,7 @@ class VehicleBrandEditor(BaseEditor):
         """Save setting"""
         self.update_brands_temp()
         cfg.user.brands = copy_setting(self.brands_temp)
-        cfg.save(0, filetype="brands")
+        cfg.save(0, cfg_type=ConfigType.BRANDS)
         while cfg.is_saving:  # wait saving finish
             time.sleep(0.01)
         wctrl.reload()

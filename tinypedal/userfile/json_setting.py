@@ -28,6 +28,7 @@ import json
 import shutil
 from typing import Callable
 
+from ..file_constants import FileExt
 from ..setting_validator import PresetValidator
 
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ def load_style_json_file(
 
         # Whether to check and add missing style
         if check_missing:
-            if PresetValidator.add_missing_key(dict_def.keys(), style_user, dict_def):
+            if PresetValidator.add_missing_key(tuple(dict_def), style_user, dict_def):
                 msg_text = "updated"
 
         # Whether to validate style
@@ -118,6 +119,14 @@ def save_json_file(
         json.dump(dict_user, jsonfile, indent=4)
 
 
+def save_compact_json_file(
+    dict_user: dict, filename: str, filepath: str, extension: str = ""
+) -> None:
+    """Save compact setting to json file"""
+    with open(f"{filepath}{filename}{extension}", "w", encoding="utf-8") as jsonfile:
+        json.dump(dict_user, jsonfile, separators=(",", ":"))
+
+
 def verify_json_file(
     dict_user: dict, filename: str, filepath: str, extension: str = ""
 ) -> bool:
@@ -133,7 +142,7 @@ def verify_json_file(
 
 
 def create_backup_file(
-    filename: str, filepath: str, extension: str = ".bak", show_log: bool = False
+    filename: str, filepath: str, extension: str = FileExt.BAK, show_log: bool = False
 ) -> None:
     """Create backup file before saving"""
     try:
@@ -150,7 +159,7 @@ def create_backup_file(
 
 
 def restore_backup_file(
-    filename: str, filepath: str, extension: str = ".bak"
+    filename: str, filepath: str, extension: str = FileExt.BAK
 ) -> None:
     """Restore backup file if saving failed"""
     try:
@@ -165,7 +174,7 @@ def restore_backup_file(
 
 
 def delete_backup_file(
-    filename: str, filepath: str, extension: str = ".bak"
+    filename: str, filepath: str, extension: str = FileExt.BAK
 ) -> None:
     """Delete backup file"""
     try:

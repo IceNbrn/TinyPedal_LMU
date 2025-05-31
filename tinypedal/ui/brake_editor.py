@@ -36,7 +36,7 @@ from PySide2.QtWidgets import (
 )
 
 from ..api_control import api
-from ..setting import cfg, copy_setting
+from ..setting import ConfigType, cfg, copy_setting
 from ..module_control import wctrl
 from ..heatmap import set_predefined_brake_name, HEATMAP_DEFAULT_BRAKE
 from ._common import (
@@ -54,8 +54,8 @@ logger = logging.getLogger(__name__)
 class BrakeEditor(BaseEditor):
     """Brake editor"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent):
+        super().__init__(parent)
         self.set_utility_title("Brake Editor")
         self.setMinimumSize(600, 500)
 
@@ -67,8 +67,9 @@ class BrakeEditor(BaseEditor):
         self.table_brakes.setHorizontalHeaderLabels(HEADER_BRAKES)
         self.table_brakes.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table_brakes.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        font_w = self.fontMetrics().averageCharWidth()
         self.table_brakes.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table_brakes.setColumnWidth(2, 160)
+        self.table_brakes.setColumnWidth(2, font_w * 26)
         self.table_brakes.cellChanged.connect(self.verify_input)
         self.refresh_table()
         self.set_unmodified()
@@ -197,7 +198,7 @@ class BrakeEditor(BaseEditor):
             QMessageBox.warning(self, "Error", "No data selected.")
             return
 
-        if not self.confirm_operation("<b>Delete selected rows?</b>"):
+        if not self.confirm_operation(message="<b>Delete selected rows?</b>"):
             return
 
         for row_index in sorted(selected_rows, reverse=True):
@@ -210,10 +211,7 @@ class BrakeEditor(BaseEditor):
             "Are you sure you want to reset brake preset to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
-        reset_msg = QMessageBox.question(
-            self, "Reset brake Preset", msg_text,
-            buttons=QMessageBox.Yes | QMessageBox.No)
-        if reset_msg == QMessageBox.Yes:
+        if self.confirm_operation(message=msg_text):
             self.brakes_temp = copy_setting(cfg.default.brakes)
             self.set_modified()
             self.refresh_table()
@@ -250,7 +248,7 @@ class BrakeEditor(BaseEditor):
         """Save setting"""
         self.update_brakes_temp()
         cfg.user.brakes = copy_setting(self.brakes_temp)
-        cfg.save(0, filetype="brakes")
+        cfg.save(0, cfg_type=ConfigType.BRAKES)
         while cfg.is_saving:  # wait saving finish
             time.sleep(0.01)
         wctrl.reload()

@@ -23,7 +23,6 @@ Main application window
 import logging
 
 from PySide2.QtCore import Qt, Slot
-from PySide2.QtGui import QIcon
 from PySide2.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -34,8 +33,8 @@ from PySide2.QtWidgets import (
     QPushButton,
 )
 
-from ..const import APP_NAME, VERSION, APP_ICON
-from ..setting import cfg
+from ..const import APP_NAME, VERSION
+from ..setting import ConfigType, cfg
 from ..api_control import api
 from ..overlay_control import octrl
 from ..module_control import mctrl, wctrl
@@ -47,7 +46,7 @@ from .preset_view import PresetList
 from .pace_notes_view import PaceNotesControl
 from .menu import OverlayMenu, ConfigMenu, ToolsMenu, WindowMenu, HelpMenu
 
-logger = logging.getLogger("tinypedal")
+logger = logging.getLogger(__name__)
 
 
 class AppWindow(QMainWindow):
@@ -56,7 +55,6 @@ class AppWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"{APP_NAME} v{VERSION}")
-        self.setWindowIcon(QIcon(APP_ICON))
 
         # Status bar & notification
         self.button_api = QPushButton()
@@ -84,9 +82,9 @@ class AppWindow(QMainWindow):
         layout_notify.addWidget(self.notify_pacenotes)
 
         # Controller tabs
-        self.tab_bar = QTabWidget()
-        self.widget_tab = ModuleList(wctrl)
-        self.module_tab = ModuleList(mctrl)
+        self.tab_bar = QTabWidget(self)
+        self.widget_tab = ModuleList(self, wctrl)
+        self.module_tab = ModuleList(self, mctrl)
         self.preset_tab = PresetList(self)
         self.spectate_tab = SpectateList(self)
         self.pacenotes_tab = PaceNotesControl(self)
@@ -97,7 +95,7 @@ class AppWindow(QMainWindow):
         self.tab_bar.addTab(self.pacenotes_tab, "Pace Notes")
 
         # Main view
-        main_view = QWidget()
+        main_view = QWidget(self)
         layout = QVBoxLayout(main_view)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -225,7 +223,7 @@ class AppWindow(QMainWindow):
                 save_changes = True
 
         if save_changes:
-            cfg.save(0, filetype="config")
+            cfg.save(0, cfg_type=ConfigType.CONFIG)
 
     def set_status_text(self):
         """Set status text"""

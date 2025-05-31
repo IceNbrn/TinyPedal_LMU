@@ -22,7 +22,7 @@ Track map viewer
 
 import os
 
-from PySide2.QtCore import Qt, Signal, QPointF, QRect
+from PySide2.QtCore import Qt, Signal, QPoint, QPointF, QRect
 from PySide2.QtGui import QPainterPath, QPainter, QPen
 from PySide2.QtWidgets import (
     QHBoxLayout,
@@ -41,18 +41,19 @@ from PySide2.QtWidgets import (
     QFrame,
 )
 
-from ..setting import cfg
+from ..setting import ConfigType, cfg
 from ._common import BaseDialog, QSS_EDITOR_BUTTON
 from . config import UserConfig
 from .. import calculation as calc
-from ..userfile.track_map import load_track_map_file, QFILTER_SVG
+from ..file_constants import FileExt, FileFilter
+from ..userfile.track_map import load_track_map_file
 
 
 class TrackMapViewer(BaseDialog):
     """Track map viewer"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent, filepath: str = "", filename: str = ""):
+        super().__init__(parent)
         self.set_utility_title("Track Map Viewer")
 
         # Set panel
@@ -64,15 +65,19 @@ class TrackMapViewer(BaseDialog):
         layout_main.addWidget(self.trackmap_panel)
         self.setLayout(layout_main)
 
+        # Pre-load track map if exists
+        if filepath and filename:
+            self.trackmap.load_trackmap(filepath, filename)
+
     def set_layout_trackmap(self):
         """Set track map panel"""
-        self.trackmap = MapView()
+        self.trackmap = MapView(self)
 
         layout_map_wrap = QVBoxLayout()
         layout_map_wrap.addWidget(self.trackmap)
         layout_map_wrap.setContentsMargins(0,0,0,0)
 
-        frame_trackmap = QFrame()
+        frame_trackmap = QFrame(self)
         frame_trackmap.setLayout(layout_map_wrap)
         frame_trackmap.setFrameShape(QFrame.StyledPanel)
 
@@ -82,7 +87,7 @@ class TrackMapViewer(BaseDialog):
         layout_trackmap.addLayout(self.trackmap.set_control_layout())
         layout_trackmap.setContentsMargins(0,0,0,0)
 
-        trackmap_panel = QFrame()
+        trackmap_panel = QFrame(self)
         trackmap_panel.setMinimumSize(500, 500)
         trackmap_panel.setLayout(layout_trackmap)
         return trackmap_panel
@@ -92,8 +97,8 @@ class MapView(QWidget):
     """Map view"""
     reloaded = Signal(bool)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent):
+        super().__init__(parent)
         # Style
         self.load_config(False)
         self.pen = QPen()
@@ -308,7 +313,7 @@ class MapView(QWidget):
 
     def set_context_menu(self):
         """Set context menu"""
-        menu = QMenu()
+        menu = QMenu(self)
         for key, item in self.osd.items():
             if key.startswith("separator"):
                 menu.addSeparator()
@@ -318,7 +323,7 @@ class MapView(QWidget):
             option.setChecked(item)
         return menu
 
-    def open_context_menu(self, position):
+    def open_context_menu(self, position: QPoint):
         """Open context menu"""
         action = self.map_context_menu.exec_(self.mapToGlobal(position))
         if not action:
@@ -330,23 +335,32 @@ class MapView(QWidget):
     def open_config_dialog(self):
         """Open config"""
         _dialog = UserConfig(
-            self, "track_map_viewer", "global",
-            cfg.user.config, cfg.default.config,
-            self.load_config)
+            parent=self,
+            key_name="track_map_viewer",
+            cfg_type=ConfigType.CONFIG,
+            user_setting=cfg.user.config,
+            default_setting=cfg.default.config,
+            reload_func=self.load_config,
+        )
         _dialog.open()
 
     def open_trackmap(self):
         """Open trackmap"""
-        filename_full = QFileDialog.getOpenFileName(
-            self,
-            dir=cfg.path.track_map,
-            filter=QFILTER_SVG
-        )[0]
+        filename_full = QFileDialog.getOpenFileName(self, dir=cfg.path.track_map, filter=FileFilter.SVG)[0]
         if not filename_full:
             return
 
         filepath = os.path.dirname(filename_full) + "/"
         filename = os.path.splitext(os.path.basename(filename_full))[0]
+        self.load_trackmap(filepath=filepath, filename=filename)
+
+    def load_trackmap(self, filepath: str, filename: str):
+        """Load trackmap"""
+        if not os.path.exists(f"{filepath}{filename}{FileExt.SVG}"):
+            msg_text = f"Cannot find track map for<br><b>{filename}</b><br>"
+            QMessageBox.warning(self, "Error", msg_text)
+            return
+
         self.raw_coords, self.raw_dists, sector_index = load_track_map_file(
             filepath=filepath,
             filename=filename,
@@ -362,7 +376,8 @@ class MapView(QWidget):
             self.map_nodes = 0
             self.map_filename = ""
             msg_text = (
-                f"Unable to load track map file:<br><b>{filename_full}</b><br><br>"
+                "Unable to load track map file from<br>"
+                f"<b>{filepath}{filename}{FileExt.SVG}</b><br><br>"
                 "Only support SVG file that generated with TinyPedal."
             )
             QMessageBox.warning(self, "Error", msg_text)

@@ -24,7 +24,7 @@ import os
 import shutil
 import time
 
-from PySide2.QtCore import Qt
+from PySide2.QtCore import Qt, QPoint
 from PySide2.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -40,7 +40,8 @@ from PySide2.QtWidgets import (
     QDialogButtonBox,
 )
 
-from ..setting import cfg
+from ..file_constants import FileExt
+from ..setting import ConfigType, cfg
 from .. import formatter as fmt
 from .. import regex_pattern as rxp
 from .. import validator as val
@@ -61,9 +62,9 @@ QSS_TAGGED_COLOR = (
 class PresetList(QWidget):
     """Preset list view"""
 
-    def __init__(self, master):
-        super().__init__()
-        self.master = master
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.master = parent
         self.preset_list = []
 
         # Label
@@ -90,7 +91,6 @@ class PresetList(QWidget):
         self.listbox_preset.setStyleSheet(QSS_LISTBOX)
         self.listbox_preset.itemDoubleClicked.connect(self.load_preset)
         self.refresh_list()
-        self.listbox_preset.setCurrentRow(0)
 
         # Layout
         layout_main = QVBoxLayout()
@@ -121,7 +121,7 @@ class PresetList(QWidget):
             item.setText(preset_name)
             self.listbox_preset.addItem(item)
             # Add primary preset tag
-            label_item = PrimaryPresetTag(preset_name)
+            label_item = PrimaryPresetTag(self, preset_name)
             self.listbox_preset.setItemWidget(item, label_item)
 
         self.label_loaded.setText(f"Loaded: <b>{cfg.filename.last_setting[:-5]}</b>")
@@ -131,7 +131,7 @@ class PresetList(QWidget):
         """Load selected preset"""
         selected_index = self.listbox_preset.currentRow()
         if selected_index >= 0:
-            cfg.filename.setting = f"{self.preset_list[selected_index]}.json"
+            cfg.filename.setting = f"{self.preset_list[selected_index]}{FileExt.JSON}"
             self.master.reload_preset()
         else:
             QMessageBox.warning(
@@ -144,14 +144,14 @@ class PresetList(QWidget):
         _dialog.open()
 
     @staticmethod
-    def toggle_autoload(checked):
+    def toggle_autoload(checked: bool):
         """Toggle auto load preset"""
         cfg.application["enable_auto_load_preset"] = checked
-        cfg.save(filetype="config")
+        cfg.save(cfg_type=ConfigType.CONFIG)
 
     def set_context_menu(self):
         """Set context menu"""
-        menu = QMenu()
+        menu = QMenu(self)
         menu.addAction("Set Primary for LMU")
         menu.addAction("Set Primary for RF2")
         menu.addSeparator()
@@ -162,7 +162,7 @@ class PresetList(QWidget):
         menu.addAction("Delete")
         return menu
 
-    def open_context_menu(self, position):
+    def open_context_menu(self, position: QPoint):
         """Open context menu"""
         if not self.listbox_preset.itemAt(position):
             return
@@ -174,18 +174,18 @@ class PresetList(QWidget):
 
         selected_index = self.listbox_preset.currentRow()
         selected_preset_name = self.preset_list[selected_index]
-        selected_filename = f"{selected_preset_name}.json"
+        selected_filename = f"{selected_preset_name}{FileExt.JSON}"
         action = selected_action.text()
 
         # Set primary preset LMU
         if action == "Set Primary for LMU":
             cfg.primary_preset["LMU"] = selected_preset_name
-            cfg.save(filetype="config")
+            cfg.save(cfg_type=ConfigType.CONFIG)
             self.refresh_list()
         # Set primary preset RF2
         elif action == "Set Primary for RF2":
             cfg.primary_preset["RF2"] = selected_preset_name
-            cfg.save(filetype="config")
+            cfg.save(cfg_type=ConfigType.CONFIG)
             self.refresh_list()
         # Clear primary preset tag
         elif action == "Clear Primary Tag":
@@ -195,7 +195,7 @@ class PresetList(QWidget):
                     cfg.primary_preset[sim_name] = ""
                     tag_found = True
             if tag_found:
-                cfg.save(filetype="config")
+                cfg.save(cfg_type=ConfigType.CONFIG)
                 self.refresh_list()
         # Duplicate preset
         elif action == "Duplicate":
@@ -224,7 +224,9 @@ class PresetList(QWidget):
             )
             delete_msg = QMessageBox.question(
                 self, "Delete Preset", msg_text,
-                buttons=QMessageBox.Yes | QMessageBox.No)
+                buttons=QMessageBox.Yes | QMessageBox.No,
+                defaultButton=QMessageBox.No,
+            )
             if delete_msg == QMessageBox.Yes:
                 if os.path.exists(f"{cfg.path.settings}{selected_filename}"):
                     os.remove(f"{cfg.path.settings}{selected_filename}")
@@ -234,7 +236,7 @@ class PresetList(QWidget):
 class CreatePreset(BaseDialog):
     """Create preset"""
 
-    def __init__(self, master, title: str = "", mode: str = "", source_filename: str = ""):
+    def __init__(self, parent, title: str = "", mode: str = "", source_filename: str = ""):
         """Initialize create preset dialog setting
 
         Args:
@@ -242,8 +244,8 @@ class CreatePreset(BaseDialog):
             mode: Edit mode, either "duplicate", "rename", or "" for new preset.
             source_filename: Source setting filename.
         """
-        super().__init__(master)
-        self.master = master
+        super().__init__(parent)
+        self.master = parent
         self.edit_mode = mode
         self.source_filename = source_filename
 
@@ -269,7 +271,7 @@ class CreatePreset(BaseDialog):
 
     def creating(self):
         """Creating new preset"""
-        entered_filename = fmt.strip_filename_extension(self.preset_entry.text(), ".json")
+        entered_filename = fmt.strip_filename_extension(self.preset_entry.text(), FileExt.JSON)
 
         if val.allowed_filename(rxp.CFG_INVALID_FILENAME, entered_filename):
             self.__saving(cfg.path.settings, entered_filename, self.source_filename)
@@ -288,24 +290,24 @@ class CreatePreset(BaseDialog):
         if self.edit_mode == "duplicate":
             shutil.copy(
                 f"{filepath}{source_filename}",
-                f"{filepath}{entered_filename}.json"
+                f"{filepath}{entered_filename}{FileExt.JSON}"
             )
             self.master.refresh_list()
         # Rename preset
         elif self.edit_mode == "rename":
             os.rename(
                 f"{filepath}{source_filename}",
-                f"{filepath}{entered_filename}.json"
+                f"{filepath}{entered_filename}{FileExt.JSON}"
             )
             # Reload if renamed file was loaded
             if cfg.filename.setting == source_filename:
-                cfg.filename.setting = f"{entered_filename}.json"
+                cfg.filename.setting = f"{entered_filename}{FileExt.JSON}"
                 self.master.master.reload_preset()
             else:
                 self.master.refresh_list()
         # Create new preset
         else:
-            cfg.filename.setting = f"{entered_filename}.json"
+            cfg.filename.setting = f"{entered_filename}{FileExt.JSON}"
             cfg.create()
             cfg.save(0)  # save setting
             while cfg.is_saving:  # wait saving finish
@@ -319,8 +321,8 @@ class CreatePreset(BaseDialog):
 class PrimaryPresetTag(QWidget):
     """Primary preset tag"""
 
-    def __init__(self, preset_name: str):
-        super().__init__()
+    def __init__(self, parent, preset_name: str):
+        super().__init__(parent)
         layout_item = QHBoxLayout()
         layout_item.setContentsMargins(0,0,0,0)
         layout_item.setSpacing(0)

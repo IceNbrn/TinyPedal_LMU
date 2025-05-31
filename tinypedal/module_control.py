@@ -25,7 +25,7 @@ import logging
 from time import sleep
 from typing import Any, KeysView
 
-from .setting import cfg
+from .setting import ConfigType, cfg
 from . import module
 from . import widget
 
@@ -100,7 +100,7 @@ class ModuleControl:
             cfg.user.setting[_name]["enable"] = True
         self.start()
         cfg.save()
-        logger.info("ACTIVE: all %s(s)", self.type_id)
+        logger.info("ENABLED: all %s(s)", self.type_id)
 
     def disable_all(self):
         """Disable all modules"""
@@ -108,7 +108,7 @@ class ModuleControl:
             cfg.user.setting[_name]["enable"] = False
         self.close()
         cfg.save()
-        logger.info("CLOSED: all %s(s)", self.type_id)
+        logger.info("DISABLED: all %s(s)", self.type_id)
 
     def __start_enabled(self):
         """Start all enabled module"""
@@ -153,5 +153,5 @@ class ModuleControl:
         return self._imported_modules.keys()
 
 
-mctrl = ModuleControl(module, "module")
-wctrl = ModuleControl(widget, "widget")
+mctrl = ModuleControl(target=module, type_id=ConfigType.MODULE)
+wctrl = ModuleControl(target=widget, type_id=ConfigType.WIDGET)

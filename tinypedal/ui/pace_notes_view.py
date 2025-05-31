@@ -46,7 +46,8 @@ from ..module_info import minfo
 from .. import validator as val
 from ..overlay_control import octrl
 from ..module_control import mctrl
-from ..userfile.track_notes import QFILTER_TPPN, COLUMN_PACENOTE
+from ..file_constants import FileFilter
+from ..userfile.track_notes import COLUMN_PACENOTE
 from ._common import QSS_EDITOR_BUTTON
 
 logger = logging.getLogger(__name__)
@@ -55,8 +56,8 @@ logger = logging.getLogger(__name__)
 class PaceNotesPlayer(QMediaPlayer):
     """Pace notes player"""
 
-    def __init__(self, config: dict):
-        super().__init__()
+    def __init__(self, parent, config: dict):
+        super().__init__(parent)
         self.mcfg = config
         self._active_state = octrl.state
 
@@ -81,10 +82,10 @@ class PaceNotesPlayer(QMediaPlayer):
                 cfg.application["minimum_update_interval"],
             )
             self._update_timer.start(update_interval, self)
-            logger.info("ACTIVE: pace notes sounds playback")
+            logger.info("ENABLED: pace notes sounds playback")
         else:
             self._update_timer.stop()
-            logger.info("STOPPED: pace notes sounds playback")
+            logger.info("DISABLED: pace notes sounds playback")
 
     def reset_playback(self):
         """Reset"""
@@ -141,11 +142,11 @@ class PaceNotesPlayer(QMediaPlayer):
 class PaceNotesControl(QWidget):
     """Pace notes control"""
 
-    def __init__(self, master):
-        super().__init__()
-        self.master = master
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.master = parent
         self.mcfg = cfg.user.setting["pace_notes_playback"]
-        self.pace_notes_player = PaceNotesPlayer(self.mcfg)
+        self.pace_notes_player = PaceNotesPlayer(self, self.mcfg)
 
         # Pace notes file selector
         self.checkbox_file = QCheckBox("Manually Select Pace Notes File")
@@ -232,7 +233,7 @@ class PaceNotesControl(QWidget):
         layout_setting.addWidget(self.label_volume)
         layout_setting.addWidget(self.slider_volume)
 
-        self.frame_control = QFrame()
+        self.frame_control = QFrame(self)
         self.frame_control.setFrameShape(QFrame.StyledPanel)
         self.frame_control.setLayout(layout_setting)
 
@@ -273,7 +274,7 @@ class PaceNotesControl(QWidget):
     def set_notes_path(self):
         """Set pace notes file path"""
         filepath = self.mcfg["pace_notes_file_name"]
-        filename_full = QFileDialog.getOpenFileName(self, dir=filepath, filter=QFILTER_TPPN)[0]
+        filename_full = QFileDialog.getOpenFileName(self, dir=filepath, filter=FileFilter.TPPN)[0]
         if not filename_full:
             return
         self.file_selector.setText(filename_full)

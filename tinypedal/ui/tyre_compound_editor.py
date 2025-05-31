@@ -36,7 +36,7 @@ from PySide2.QtWidgets import (
 )
 
 from ..api_control import api
-from ..setting import cfg, copy_setting
+from ..setting import ConfigType, cfg, copy_setting
 from ..module_control import wctrl
 from ..heatmap import set_predefined_compound_symbol, HEATMAP_DEFAULT_TYRE
 from ._common import (
@@ -53,8 +53,8 @@ logger = logging.getLogger(__name__)
 class TyreCompoundEditor(BaseEditor):
     """Tyre compound editor"""
 
-    def __init__(self, master):
-        super().__init__(master)
+    def __init__(self, parent):
+        super().__init__(parent)
         self.set_utility_title("Tyre Compound Editor")
         self.setMinimumSize(600, 500)
 
@@ -66,10 +66,11 @@ class TyreCompoundEditor(BaseEditor):
         self.table_compounds.setHorizontalHeaderLabels(HEADER_COMPOUNDS)
         self.table_compounds.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table_compounds.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        font_w = self.fontMetrics().averageCharWidth()
         self.table_compounds.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
-        self.table_compounds.setColumnWidth(1, 80)
+        self.table_compounds.setColumnWidth(1, font_w * 13)
         self.table_compounds.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table_compounds.setColumnWidth(2, 160)
+        self.table_compounds.setColumnWidth(2, font_w * 26)
         self.table_compounds.cellChanged.connect(self.verify_input)
         self.refresh_table()
         self.set_unmodified()
@@ -204,7 +205,7 @@ class TyreCompoundEditor(BaseEditor):
             QMessageBox.warning(self, "Error", "No data selected.")
             return
 
-        if not self.confirm_operation("<b>Delete selected rows?</b>"):
+        if not self.confirm_operation(message="<b>Delete selected rows?</b>"):
             return
 
         for row_index in sorted(selected_rows, reverse=True):
@@ -217,10 +218,7 @@ class TyreCompoundEditor(BaseEditor):
             "Are you sure you want to reset compound preset to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
-        reset_msg = QMessageBox.question(
-            self, "Reset compound Preset", msg_text,
-            buttons=QMessageBox.Yes | QMessageBox.No)
-        if reset_msg == QMessageBox.Yes:
+        if self.confirm_operation(message=msg_text):
             self.compounds_temp = copy_setting(cfg.default.compounds)
             self.set_modified()
             self.refresh_table()
@@ -261,7 +259,7 @@ class TyreCompoundEditor(BaseEditor):
         """Save setting"""
         self.update_compounds_temp()
         cfg.user.compounds = copy_setting(self.compounds_temp)
-        cfg.save(0, filetype="compounds")
+        cfg.save(0, cfg_type=ConfigType.COMPOUNDS)
         while cfg.is_saving:  # wait saving finish
             time.sleep(0.01)
         wctrl.reload()

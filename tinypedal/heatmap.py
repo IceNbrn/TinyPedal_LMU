@@ -23,7 +23,7 @@ Heatmap function
 from __future__ import annotations
 import re
 
-from .setting import cfg
+from .setting import ConfigType, cfg
 from .validator import hex_color
 from .regex_pattern import COMMON_TYRE_COMPOUNDS
 from .template.setting_heatmap import HEATMAP_DEFAULT_TYRE, HEATMAP_DEFAULT_BRAKE
@@ -31,7 +31,7 @@ from .template.setting_heatmap import HEATMAP_DEFAULT_TYRE, HEATMAP_DEFAULT_BRAK
 
 def invalid_name(name: str) -> bool:
     """Check invalid name"""
-    return name == "" or name[:3] == " - "
+    return name == "" or name[:3] == " - " or name[-3:] == " - "
 
 
 # Brake function
@@ -41,7 +41,7 @@ def add_missing_brake(brake_name: str) -> None:
         "failure_thickness": 0.0,
         "heatmap": HEATMAP_DEFAULT_BRAKE,
     }
-    cfg.save(filetype="brakes")
+    cfg.save(cfg_type=ConfigType.BRAKES)
 
 
 def set_predefined_brake_name(class_name: str, is_front: bool) -> str:
@@ -79,7 +79,7 @@ def add_missing_compound(compound_name: str) -> None:
         "symbol": set_predefined_compound_symbol(compound_name),
         "heatmap": HEATMAP_DEFAULT_TYRE,
     }
-    cfg.save(filetype="compounds")
+    cfg.save(cfg_type=ConfigType.COMPOUNDS)
 
 
 def set_predefined_compound_symbol(compound_name: str) -> str:
