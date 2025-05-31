@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,27 +20,27 @@
 Mapping module
 """
 
-from functools import partial
-
-from ._base import DataModule
-from ..module_info import minfo
-from ..api_control import api
-from ..validator import file_last_modified
-from ..file_constants import FileExt
 from .. import calculation as calc
+from ..api_control import api
+from ..const_file import FileExt
+from ..module_info import minfo
+from ..userfile.track_info import load_track_info, save_track_info
 from ..userfile.track_map import load_track_map_file, save_track_map_file
-
-round4 = partial(round, ndigits=4)
+from ..validator import file_last_modified
+from ._base import DataModule, round4
 
 
 class Realtime(DataModule):
     """Mapping data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
@@ -49,7 +49,7 @@ class Realtime(DataModule):
 
         recorder = MapRecorder(userpath_track_map)
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:
@@ -58,7 +58,6 @@ class Realtime(DataModule):
 
                     recorder.load_map(api.read.check.track_id())
                     if recorder.map_exist:
-                        update_interval = self.idle_interval
                         output.coordinates = recorder.output.coords
                         output.elevations = recorder.output.dists
                         output.sectors = recorder.output.sectors
@@ -67,14 +66,79 @@ class Realtime(DataModule):
                         recorder.reset()
                         output.reset()
 
+                    # Load track info
+                    gen_track_info = update_track_info(output, api.read.session.track_name())
+                    next(gen_track_info)
+
+                # Recording map data
                 if not recorder.map_exist:
                     recorder.update()
                     if recorder.map_exist:
                         reset = False  # load recorded map in next loop
+
+                # Update track info
+                gen_track_info.send(True)
+
             else:
                 if reset:
                     reset = False
                     update_interval = self.idle_interval
+                    gen_track_info.send(False)
+
+
+def update_track_info(output, track_name: str):
+    """Update track info"""
+    pitin_pos, pitout_pos, speed_limit = load_track_info(track_name)
+    pos_last = 0.0
+    last_speed = 0.0
+    pitlane_length = 0.0
+    last_in_pits = -1
+    while True:
+        # Save check
+        updating = yield None
+        if not updating:
+            save_track_info(
+                track_name=track_name,
+                # kwargs {key: value}
+                pit_entry=round4(pitin_pos),
+                pit_exit=round4(pitout_pos),
+                pit_speed=round4(speed_limit),
+            )
+            continue
+
+        in_pits = api.read.vehicle.in_pits()
+
+        # Calibrate pit speed limit
+        if in_pits and api.read.switch.speed_limiter():
+            pos_curr = api.read.lap.distance()
+            if pos_last != pos_curr:  # position check
+                pos_last = pos_curr
+                speed = api.read.vehicle.speed()
+                if (api.read.inputs.throttle_raw() > 0.95 and  # full throttle check
+                    api.read.inputs.brake_raw() < 0.01 and  # no braking check
+                    speed > 1 and  # moving check
+                    0.1 > speed - last_speed > 0):  # limit speed delta in 0.0 - 0.1m/s
+                    speed_limit = speed
+                last_speed = speed
+
+        # Calculate pit lane length
+        if last_in_pits != in_pits:
+            if last_in_pits != -1 and api.read.vehicle.speed() > 1:  # avoid ESC desync
+                if in_pits > 0:  # entering pit
+                    pitin_pos = max(api.read.lap.distance(), 0.0)
+                else:  # exiting pit
+                    pitout_pos = max(api.read.lap.distance(), 0.0)
+            last_in_pits = in_pits
+            if pitin_pos != 0 != pitout_pos:  # calculate only with valid position
+                if pitin_pos < pitout_pos:
+                    pitlane_length = pitout_pos - pitin_pos
+                else:
+                    pitlane_length = api.read.lap.track_length() - pitin_pos + pitout_pos
+
+        output.pitSpeedLimit = speed_limit
+        output.pitEntryPosition = pitin_pos
+        output.pitExitPosition = pitout_pos
+        output.pitLaneLength = pitlane_length
 
 
 class MapCoords:

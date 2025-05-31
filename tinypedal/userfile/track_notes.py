@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,15 +21,15 @@ Track & pace notes file function
 """
 
 from __future__ import annotations
-import logging
-import csv
-import os
-import re
-from operator import itemgetter
-from collections.abc import Callable
-from typing import Any, Iterable
 
-from ..file_constants import FileFilter
+import csv
+import logging
+import os
+from operator import itemgetter
+from typing import Any, Callable, Iterable
+
+from ..const_common import CRLF
+from ..const_file import FileFilter
 
 NOTESTYPE_PACE = "Pace Notes"
 NOTESTYPE_TRACK = "Track Notes"
@@ -43,8 +43,6 @@ HEADER_PACE_NOTES = COLUMN_DISTANCE, COLUMN_PACENOTE, COLUMN_COMMENT
 HEADER_TRACK_NOTES = COLUMN_DISTANCE, COLUMN_TRACKNOTE, COLUMN_COMMENT
 
 METADATA_FIELDNAMES = "TITLE", "AUTHOR", "DATE", "DESCRIPTION"
-
-CRLF = "\r\n"
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +129,11 @@ def parse_gpl_notes(notes_file: Iterable[str], table_header: tuple[str, ...]):
     notes_temp = []
     for note_line in notes_file:
         # Skip comments and empty lines
-        if note_line.startswith(";") or not re.search(".mp3", note_line):
+        if note_line.startswith(";") or ".mp3" not in note_line:
             # Load metadata
             if not metadata_checked:
                 for meta_key in meta_info_keys:
-                    if re.search(meta_key, note_line):
+                    if meta_key in note_line:
                         meta_info[meta_key] = note_line.lstrip(f";{meta_key}:").strip()
                         continue
             continue
@@ -241,7 +239,7 @@ def write_gpl_notes(
     for note_line in dataset:
         notes_file.write(
             f"{note_line[table_header[1]]}.mp3, "  # sound file name
-            f"{round(note_line[table_header[0]])}; "  # distance integer
+            f"{note_line[table_header[0]]:.0f}; "  # distance integer
             f"{note_line[table_header[2]]}{CRLF}"  # comment
         )
     notes_file.write(CRLF)

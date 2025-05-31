@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -32,6 +32,8 @@ class Realtime(Overlay):
         # Assign base setting
         super().__init__(config, widget_name)
         bar_gap = self.wcfg["bar_gap"]
+        bar_gap_hori = self.wcfg["horizontal_gap"]
+        bar_gap_vert = self.wcfg["vertical_gap"]
         layout = self.set_grid_layout(gap=bar_gap)
         self.set_primary_layout(layout=layout)
 
@@ -51,6 +53,11 @@ class Realtime(Overlay):
         bar_width = max(self.wcfg["bar_width"], 20)
         bar_height = int(font_m.capital + pady * 2)
         max_range = max(int(self.wcfg["position_max_range"]), 10)
+        mark_color = (
+            self.wcfg["third_spring_position_mark_color"]
+            if self.wcfg["show_third_spring_position_mark"]
+            else ""
+        )
 
         # Caption
         if self.wcfg["show_caption"]:
@@ -64,7 +71,7 @@ class Realtime(Overlay):
             cap_bar = self.set_qlabel(
                 text=self.wcfg["caption_text"],
                 style=bar_style_desc,
-                fixed_width=bar_width * 2 + bar_gap,
+                fixed_width=bar_width * 2 + bar_gap_hori,
             )
             self.set_primary_orient(
                 target=cap_bar,
@@ -72,7 +79,7 @@ class Realtime(Overlay):
             )
 
         # Suspension position
-        layout_inner = self.set_grid_layout(gap=bar_gap)
+        layout_inner = self.set_grid_layout(gap_hori=bar_gap_hori, gap_vert=bar_gap_vert)
         self.susp_color = (
             self.wcfg["positive_position_color"],
             self.wcfg["negative_position_color"],
@@ -88,6 +95,8 @@ class Realtime(Overlay):
                 input_color=self.wcfg["positive_position_color"],
                 fg_color=self.wcfg["font_color"],
                 bg_color=self.wcfg["bkg_color"],
+                mark_width=max(self.wcfg["third_spring_position_mark_width"], 1),
+                mark_color=mark_color,
                 right_side=idx % 2,
             ) for idx in range(4)
         )
@@ -105,8 +114,14 @@ class Realtime(Overlay):
         if self.state.active:
 
             susp_set = api.read.wheel.suspension_deflection()
-            for susp, bar_susp in zip(susp_set, self.bars_susp):
-                self.update_susp(bar_susp, round(susp))
+
+            if self.wcfg["show_third_spring_position_mark"]:
+                third_set = api.read.wheel.third_spring_deflection()
+                for susp, third, bar_susp in zip(susp_set, third_set, self.bars_susp):
+                    self.update_susp_third(bar_susp, round(susp), third)
+            else:
+                for susp, bar_susp in zip(susp_set, self.bars_susp):
+                    self.update_susp(bar_susp, round(susp))
 
     # GUI update methods
     def update_susp(self, target, data):
@@ -115,3 +130,10 @@ class Realtime(Overlay):
             target.last = data
             target.input_color = self.susp_color[data < 0]
             target.update_input(abs(data))
+
+    def update_susp_third(self, target, data, third):
+        """Suspension position with third spring"""
+        if target.last != data:
+            target.last = data
+            target.input_color = self.susp_color[data < 0]
+            target.update_input_mark(abs(data), abs(third))

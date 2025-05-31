@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,39 +21,43 @@ Loader function
 """
 
 import logging
+import os
 import signal
+import sys
 
-from .file_constants import FileExt
-from .setting import ConfigType, cfg
 from .api_control import api
+from .const_file import FileExt
 from .module_control import mctrl, wctrl
 from .overlay_control import octrl
+from .setting import cfg
 
 logger = logging.getLogger(__name__)
+
+
+def int_signal_handler(sign, frame):
+    """Quit by keyboard interrupt"""
+    close()
+    sys.exit()
 
 
 def start():
     """Start api, modules, widgets, etc. Call once per launch."""
     logger.info("STARTING............")
-    # 1 load global
-    cfg.load_global()
-    cfg.save(cfg_type=ConfigType.CONFIG)
-    # 2 load preset
-    cfg.filename.setting = f"{cfg.preset_list[0]}{FileExt.JSON}"
+    signal.signal(signal.SIGINT, int_signal_handler)
+    # 1 load preset
+    cfg.set_next_to_load(f"{cfg.preset_list[0]}{FileExt.JSON}")
     cfg.load()
     cfg.save()
-    # 3 start api
+    # 2 start api
     api.connect()
     api.start()
-    # 4 start modules
+    # 3 start modules
     mctrl.start()
-    # 5 start widgets
+    # 4 start widgets
     wctrl.start()
-    # 6 start main window
+    # 5 start main window
     from .ui.app import AppWindow
-    config_window = AppWindow()
-    signal.signal(signal.SIGINT, config_window.int_signal_handler)
-
+    AppWindow()
     # Finalize loading after main GUI fully loaded
     logger.info("FINALIZING............")
     # 1 Enable overlay control
@@ -69,14 +73,34 @@ def close():
     api.stop()
 
 
-def reload():
-    """Reload api, modules, widgets"""
+def restart():
+    """Restart APP"""
+    logger.info("RESTARTING............")
+    # Set restart env for skipping single instance check
+    os.environ["TINYPEDAL_RESTART"] = "TRUE"
+    if "tinypedal.exe" in sys.executable:  # if run as exe
+        os.execl(sys.executable, *sys.argv)
+    else:  # if run as script
+        os.execl(sys.executable, sys.executable, *sys.argv)
+
+
+def reload(reload_preset: bool = False):
+    """Reload preset, api, modules, widgets
+
+    Args:
+        reload_preset:
+            Whether to reload preset file.
+            Should only done if changed global setting,
+            or reloading from preset tab,
+            or auto-loading preset.
+    """
     logger.info("RELOADING............")
     # 1 unload modules
     unload_modules()
-    # 2 reload setting
-    cfg.load()
-    cfg.save(0)
+    # 2 reload preset file
+    if reload_preset:
+        cfg.load()
+        cfg.save(0)
     # 3 restart api
     api.restart()
     # 4 load modules

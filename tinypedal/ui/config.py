@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,39 +22,41 @@ Config dialog
 
 import re
 import time
-from collections.abc import Callable
+from typing import Callable
 
-from PySide2.QtCore import Qt, QPoint
+from PySide2.QtCore import QPoint, Qt
 from PySide2.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QGridLayout,
-    QLabel,
-    QLineEdit,
-    QDialogButtonBox,
     QCheckBox,
     QComboBox,
-    QScrollArea,
+    QDialogButtonBox,
     QFontComboBox,
-    QSpinBox,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMenu,
     QMessageBox,
+    QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
 from .. import regex_pattern as rxp
-from .. import validator as val
-from .. import formatter as fmt
-from ..setting import ConfigType, cfg
+from .. import set_relative_path, set_user_data_path
+from ..const_file import ConfigType
+from ..formatter import format_option_name
+from ..setting import cfg
+from ..validator import is_clock_format, is_hex_color, is_string_number
 from ._common import (
+    QVAL_COLOR,
+    QVAL_FLOAT,
+    QVAL_INTEGER,
     BaseDialog,
     DoubleClickEdit,
-    QVAL_INTEGER,
-    QVAL_FLOAT,
-    QVAL_COLOR,
+    UIScaler,
 )
 
-OPTION_WIDTH = 120
 COLUMN_LABEL = 0  # grid layout column index
 COLUMN_OPTION = 1
 
@@ -64,7 +66,7 @@ class FontConfig(BaseDialog):
 
     def __init__(self, parent, user_setting: dict, reload_func: Callable):
         super().__init__(parent)
-        self.set_config_title("Global Font Override", cfg.filename.last_setting)
+        self.set_config_title("Global Font Override", cfg.filename.setting)
 
         self.reloading = reload_func
         self.user_setting = user_setting
@@ -72,15 +74,15 @@ class FontConfig(BaseDialog):
         # Combobox
         self.edit_fontname = QFontComboBox(self)
         self.edit_fontname.setCurrentText("no change")
-        self.edit_fontname.setFixedWidth(OPTION_WIDTH)
+        self.edit_fontname.setFixedWidth(UIScaler.size(9))
 
         self.edit_fontsize = QSpinBox(self)
         self.edit_fontsize.setRange(-999,999)
-        self.edit_fontsize.setFixedWidth(OPTION_WIDTH)
+        self.edit_fontsize.setFixedWidth(UIScaler.size(9))
 
         self.edit_fontweight = QComboBox(self)
         self.edit_fontweight.addItems(("no change", *rxp.CHOICE_COMMON[rxp.CFG_FONT_WEIGHT]))
-        self.edit_fontweight.setFixedWidth(OPTION_WIDTH)
+        self.edit_fontweight.setFixedWidth(UIScaler.size(9))
 
         layout_option = QGridLayout()
         layout_option.setAlignment(Qt.AlignTop)
@@ -100,6 +102,7 @@ class FontConfig(BaseDialog):
         button_save.rejected.connect(self.reject)
 
         layout_button = QHBoxLayout()
+        layout_button.addStretch(1)
         layout_button.addWidget(button_apply)
         layout_button.addWidget(button_save)
 
@@ -107,6 +110,7 @@ class FontConfig(BaseDialog):
         layout_main = QVBoxLayout()
         layout_main.addLayout(layout_option)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
 
     def applying(self):
@@ -147,7 +151,7 @@ class UserConfig(BaseDialog):
 
     def __init__(
         self, parent, key_name: str, cfg_type: str, user_setting: dict,
-        default_setting: dict, reload_func: Callable, option_width: int = OPTION_WIDTH):
+        default_setting: dict, reload_func: Callable, option_width: int = 9):
         """
         Args:
             key_name: config key name.
@@ -158,14 +162,14 @@ class UserConfig(BaseDialog):
             option_width: option column width in pixels.
         """
         super().__init__(parent)
-        self.set_config_title(fmt.format_option_name(key_name), set_preset_name(cfg_type))
+        self.set_config_title(format_option_name(key_name), set_preset_name(cfg_type))
 
         self.reloading = reload_func
         self.key_name = key_name
         self.cfg_type = cfg_type
         self.user_setting = user_setting
         self.default_setting = default_setting
-        self.option_width = option_width
+        self.option_width = UIScaler.size(option_width)
 
         # Option dict (key: option editor)
         self.option_bool: dict = {}
@@ -207,11 +211,13 @@ class UserConfig(BaseDialog):
 
         layout_main.addWidget(scroll_box)
         layout_button.addWidget(button_reset)
+        layout_button.addStretch(1)
         layout_button.addWidget(button_apply)
         layout_button.addWidget(button_save)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
-        self.setMinimumWidth(self.sizeHint().width() + 20)
+        self.setMinimumWidth(self.sizeHint().width() + UIScaler.size(2))
 
     def applying(self):
         """Save & apply"""
@@ -224,7 +230,7 @@ class UserConfig(BaseDialog):
     def reset_setting(self):
         """Reset setting"""
         msg_text = (
-            "Are you sure you want to reset options to default?<br><br>"
+            f"Reset all <b>{format_option_name(self.key_name)}</b> options to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
         if self.confirm_operation(title="Reset Options", message=msg_text):
@@ -264,7 +270,7 @@ class UserConfig(BaseDialog):
 
         for key, editor in self.option_color.items():
             value = editor.text()
-            if val.hex_color(value):
+            if is_hex_color(value):
                 user_setting[key] = value
             else:
                 self.value_error_message("color", key)
@@ -272,8 +278,8 @@ class UserConfig(BaseDialog):
 
         for key, editor in self.option_path.items():
             # Try convert to relative path again, in case user manually sets path
-            value = val.relative_path(editor.text())
-            if val.user_data_path(value):
+            value = set_relative_path(editor.text())
+            if set_user_data_path(value):
                 user_setting[key] = value
                 editor.setText(value)  # update reformatted path
             else:
@@ -291,7 +297,7 @@ class UserConfig(BaseDialog):
 
         for key, editor in self.option_string.items():
             value = editor.text()
-            if re.search(rxp.CFG_CLOCK_FORMAT, key) and not val.clock_format(value):
+            if re.search(rxp.CFG_CLOCK_FORMAT, key) and not is_clock_format(value):
                 self.value_error_message("clock format", key)
                 error_found = True
                 continue
@@ -299,7 +305,7 @@ class UserConfig(BaseDialog):
 
         for key, editor in self.option_integer.items():
             value = editor.text()
-            if val.string_number(value):
+            if is_string_number(value):
                 user_setting[key] = int(value)
             else:
                 self.value_error_message("number", key)
@@ -307,7 +313,7 @@ class UserConfig(BaseDialog):
 
         for key, editor in self.option_float.items():
             value = editor.text()
-            if val.string_number(value):
+            if is_string_number(value):
                 value = float(value)
                 if value % 1 == 0:  # remove unnecessary decimal points
                     value = int(value)
@@ -338,7 +344,7 @@ class UserConfig(BaseDialog):
     def value_error_message(self, value_type: str, option_name: str):
         """Value error message"""
         msg_text = (
-            f"Invalid {value_type} for <b>{fmt.format_option_name(option_name)}</b> option."
+            f"Invalid {value_type} for <b>{format_option_name(option_name)}</b> option."
             "<br><br>Changes are not saved."
         )
         QMessageBox.warning(self, "Error", msg_text)
@@ -352,6 +358,12 @@ class UserConfig(BaseDialog):
             # Bool
             if re.search(rxp.CFG_BOOL, key):
                 self.__add_option_bool(idx, key, layout)
+                continue
+            # Units choice list string
+            if self.__choice_match(rxp.CHOICE_UNITS, idx, key, layout):
+                continue
+            # Common choice list string
+            if self.__choice_match(rxp.CHOICE_COMMON, idx, key, layout):
                 continue
             # Color string
             if re.search(rxp.CFG_COLOR, key):
@@ -368,12 +380,6 @@ class UserConfig(BaseDialog):
             # Font name string
             if re.search(rxp.CFG_FONT_NAME, key):
                 self.__add_option_fontname(idx, key, layout)
-                continue
-            # Units choice list string
-            if self.__choice_match(rxp.CHOICE_UNITS, idx, key, layout):
-                continue
-            # Common choice list string
-            if self.__choice_match(rxp.CHOICE_COMMON, idx, key, layout):
                 continue
             # Heatmap string
             if re.search(rxp.CFG_HEATMAP, key):
@@ -405,7 +411,7 @@ class UserConfig(BaseDialog):
 
     def __add_option_label(self, idx, key, layout):
         """Option label"""
-        label = QLabel(fmt.format_option_name(key))
+        label = QLabel(format_option_name(key))
         layout.addWidget(label, idx, COLUMN_LABEL)
 
     def __add_option_bool(self, idx, key, layout):
@@ -538,7 +544,7 @@ def set_preset_name(cfg_type: str):
     """Set preset name"""
     if cfg_type == ConfigType.CONFIG:
         return f"{cfg.filename.config} (global)"
-    return cfg.filename.last_setting
+    return cfg.filename.setting
 
 
 def add_context_menu(parent: QWidget):
@@ -551,7 +557,7 @@ def add_context_menu(parent: QWidget):
 
 def context_menu_reset_option(position: QPoint, parent: QWidget):
     """Context menu reset option"""
-    menu = QMenu(parent)
+    menu = QMenu()  # no parent for temp menu
     option_reset = menu.addAction("Reset to Default")
     action = menu.exec_(parent.mapToGlobal(position))
     if action == option_reset:

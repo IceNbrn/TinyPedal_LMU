@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,20 +22,23 @@ Force module
 
 from functools import partial
 
-from ._base import DataModule
-from ..module_info import minfo
-from ..api_control import api
 from .. import calculation as calc
+from ..api_control import api
+from ..module_info import minfo
+from ._base import DataModule
 
 
 class Realtime(DataModule):
     """Force data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
@@ -54,7 +57,7 @@ class Realtime(DataModule):
         calc_transient_rate = TransientMax(3)
         calc_max_braking_rate = TransientMax(self.mcfg["max_braking_rate_reset_delay"], True)
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:
@@ -132,6 +135,14 @@ class Realtime(DataModule):
 class TransientMax:
     """Transient max"""
 
+    __slots__ = (
+        "_reset_delay",
+        "_store_recent",
+        "_reset_timer",
+        "_max_value",
+        "_stored_value",
+    )
+
     def __init__(self, reset_delay: float, store_recent: bool = False):
         """
         Args:
@@ -175,6 +186,12 @@ class TransientMax:
 
 class BrakingRate:
     """Braking rate (G force)"""
+
+    __slots__ = (
+        "_g_accel",
+        "_last_speed",
+        "_last_time",
+    )
 
     def __init__(self, g_accel: float):
         """

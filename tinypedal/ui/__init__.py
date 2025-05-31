@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -17,5 +17,264 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Application UI
+Application UI, style
 """
+
+from PySide2.QtGui import QGuiApplication, QPalette
+from PySide2.QtWidgets import QApplication
+
+
+def set_style_palette(color_theme: str):
+    """Set style palette"""
+    if color_theme == "Dark":
+        palette_theme = palette_dark()
+    else:
+        palette_theme = palette_light()
+
+    palette = QGuiApplication.palette()
+    group_active = QPalette.Active
+    group_inactive = QPalette.Inactive
+    group_disabled = QPalette.Disabled
+    for color_active, color_inactive, color_disabled, color_role in palette_theme:
+        palette.setColor(group_active, color_role, color_active)
+        palette.setColor(group_inactive, color_role, color_inactive)
+        palette.setColor(group_disabled, color_role, color_disabled)
+    QApplication.setPalette(palette)
+
+
+def palette_light():
+    """Set palette light"""
+    return (
+        #   Active   Inactive   Disabled  Role
+        ("#F0F0F0", "#F0F0F0", "#E8E8E8", QPalette.Window),
+        ("#050505", "#050505", "#808080", QPalette.WindowText),
+        ("#FFFFFF", "#FFFFFF", "#EEEEEE", QPalette.Base),
+        ("#EBEBEB", "#EBEBEB", "#DBDBDB", QPalette.AlternateBase),
+        ("#FFFFFF", "#FFFFFF", "#FFFFFF", QPalette.ToolTipBase),
+        ("#050505", "#050505", "#050505", QPalette.ToolTipText),
+        ("#050505", "#050505", "#050505", QPalette.PlaceholderText),
+        ("#050505", "#050505", "#808080", QPalette.Text),
+        ("#F0F0F0", "#F0F0F0", "#F0F0F0", QPalette.Button),
+        ("#050505", "#050505", "#808080", QPalette.ButtonText),
+        ("#FFFFFF", "#FFFFFF", "#FFFFFF", QPalette.BrightText),
+        ("#FFFFFF", "#FFFFFF", "#FFFFFF", QPalette.Light),
+        ("#E3E3E3", "#E3E3E3", "#F7F7F7", QPalette.Midlight),
+        ("#A0A0A0", "#A0A0A0", "#A0A0A0", QPalette.Dark),
+        ("#CCCCCC", "#CCCCCC", "#CCCCCC", QPalette.Mid),
+        ("#111111", "#111111", "#050505", QPalette.Shadow),
+        ("#0088DD", "#555555", "#CCCCCC", QPalette.Highlight),
+        ("#FFFFFF", "#F0F0F0", "#555555", QPalette.HighlightedText),
+        ("#0088DD", "#0088DD", "#808080", QPalette.Link),
+        ("#FF00FF", "#FF00FF", "#808080", QPalette.LinkVisited),
+    )
+
+
+def palette_dark():
+    """Set palette dark"""
+    return (
+        #   Active   Inactive   Disabled  Role
+        ("#333333", "#333333", "#2A2A2A", QPalette.Window),
+        ("#FAFAFA", "#FAFAFA", "#808080", QPalette.WindowText),
+        ("#222222", "#222222", "#333333", QPalette.Base),
+        ("#2A2A2A", "#2A2A2A", "#3A3A3A", QPalette.AlternateBase),
+        ("#333333", "#333333", "#333333", QPalette.ToolTipBase),
+        ("#FAFAFA", "#FAFAFA", "#FAFAFA", QPalette.ToolTipText),
+        ("#FAFAFA", "#FAFAFA", "#FAFAFA", QPalette.PlaceholderText),
+        ("#FAFAFA", "#FAFAFA", "#808080", QPalette.Text),
+        ("#333333", "#333333", "#303030", QPalette.Button),
+        ("#FAFAFA", "#FAFAFA", "#888888", QPalette.ButtonText),
+        ("#FFFFFF", "#FFFFFF", "#FFFFFF", QPalette.BrightText),
+        ("#AAAAAA", "#AAAAAA", "#484848", QPalette.Light),
+        ("#999999", "#999999", "#383838", QPalette.Midlight),
+        ("#555555", "#555555", "#181818", QPalette.Dark),
+        ("#444444", "#444444", "#222222", QPalette.Mid),
+        ("#222222", "#222222", "#0E0E0E", QPalette.Shadow),
+        ("#0088DD", "#CCCCCC", "#444444", QPalette.Highlight),
+        ("#FAFAFA", "#181818", "#999999", QPalette.HighlightedText),
+        ("#22AAFF", "#22AAFF", "#808080", QPalette.Link),
+        ("#FF22FF", "#FF22FF", "#808080", QPalette.LinkVisited),
+    )
+
+
+def set_style_window(base_font_pt: int) -> str:
+    """Set style window (not affecting overlay)"""
+    # Scale font (point size)
+    font_pt_item_name = 1.2 * base_font_pt
+    font_pt_item_button = 1.05 * base_font_pt
+    font_pt_item_toggle = 1.0 * base_font_pt
+    font_pt_text_browser = 0.9 * base_font_pt
+    font_pt_app_name = 1.4 * base_font_pt
+
+    # Size
+    border_radius_button = 0.1  # em
+
+    # Color
+    palette = QApplication.palette()
+    palette.setCurrentColorGroup(QPalette.Active)
+    color_active_window_text = palette.windowText().color().name()
+    color_active_window = palette.window().color().name()
+    color_active_highlighted_text = palette.highlightedText().color().name()
+    color_active_highlight = palette.highlight().color().name()
+
+    palette.setCurrentColorGroup(QPalette.Inactive)
+    color_inactive_highlighted_text = palette.highlightedText().color().name()
+    color_inactive_highlight = palette.highlight().color().name()
+
+    palette.setCurrentColorGroup(QPalette.Disabled)
+    color_disabled_window_text = palette.windowText().color().name()
+    color_disabled_highlighted_text = palette.highlightedText().color().name()
+    color_disabled_highlight = palette.highlight().color().name()
+
+    style = f"""
+        /* Misc */
+        QSizeGrip {{
+            image: none;
+            width: 4px;
+        }}
+        QToolTip {{
+            color: {color_active_window_text};
+            background: {color_active_window};
+            border: 1px solid {color_disabled_window_text};
+        }}
+
+        /* Main status bar */
+        AppWindow QStatusBar > QPushButton {{
+            font-size: {font_pt_text_browser}pt;
+            border: none;
+            padding: 0.1em 0.2em;
+        }}
+        AppWindow QStatusBar > QPushButton::hover {{
+            color: {color_active_highlighted_text};
+            background: {color_active_highlight};
+        }}
+
+        /* Notify bar */
+        NotifyBar QPushButton {{
+            font-weight: bold;
+            padding: 0.2em;
+            border: none;
+            color: {color_active_highlighted_text};
+        }}
+        NotifyBar #notifySpectate {{
+            background: #08C;
+        }}
+        NotifyBar #notifyPacenotes {{
+            background: #290;
+        }}
+        NotifyBar #notifyPresetLocked {{
+            background: #777;
+        }}
+
+        /* Module list (tab) */
+        ModuleList QListView {{
+            font-size: {font_pt_item_name}pt;
+            outline: none;
+        }}
+        ModuleList QListView::item {{
+            border: none;
+            min-height: 1.75em;
+            color: {color_active_window_text};
+        }}
+        ModuleList QListView::item:selected {{
+            background: transparent;
+        }}
+        ModuleList QListView::item:hover {{
+            background: {color_disabled_highlight};
+        }}
+        ModuleControlItem QPushButton {{
+            border-radius: {border_radius_button}em;
+            height: none;
+            margin: 0.25em 0.25em 0.25em 0;
+        }}
+        ModuleControlItem #buttonConfig {{
+            font-size: {font_pt_item_button}pt;
+            color: {color_disabled_window_text};
+            padding: 0 0.2em;
+        }}
+        ModuleControlItem #buttonToggle {{
+            font-size: {font_pt_item_toggle}pt;
+            font-weight: bold;
+            color: {color_disabled_highlighted_text};
+            background: {color_disabled_highlight};
+            min-width: 2em;
+        }}
+        ModuleControlItem #buttonToggle::checked,
+        ModuleControlItem #buttonConfig::checked {{
+            color: {color_inactive_highlighted_text};
+            background: {color_inactive_highlight};
+        }}
+        ModuleControlItem #buttonToggle::hover,
+        ModuleControlItem #buttonConfig::hover,
+        ModuleControlItem #buttonToggle::checked:hover,
+        ModuleControlItem #buttonConfig::checked:hover {{
+            color: {color_active_highlighted_text};
+            background: {color_active_highlight};
+        }}
+
+        /* Preset list (tab) */
+        PresetList QListView {{
+            font-size: {font_pt_item_name}pt;
+            outline: none;
+        }}
+        PresetList QListView::item {{
+            border: none;
+            min-height: 1.75em;
+        }}
+        PresetList QListView::item:selected {{
+            selection-color: {color_active_highlighted_text};
+            background: {color_active_highlight};
+        }}
+        PresetTagItem QLabel {{
+            font-size: {font_pt_item_button}pt;
+            color: {color_active_highlighted_text};
+            margin: 0.25em 0.25em 0.25em 0;
+            border-radius: {border_radius_button}em;
+        }}
+        PresetTagItem QLabel#LMU {{
+            background: #F40;
+        }}
+        PresetTagItem QLabel#RF2 {{
+            background: #0AF;
+        }}
+        PresetTagItem QLabel#LOCKED {{
+            background: #777;
+        }}
+
+        /* Spectate list (tab) */
+        SpectateList QListView {{
+            font-size: {font_pt_item_button}pt;
+            outline: none;
+        }}
+        SpectateList QListView::item {{
+            min-height: 1.75em;
+            border: none;
+        }}
+        SpectateList QListView::item:selected {{
+            selection-color: {color_active_highlighted_text};
+            background: {color_active_highlight};
+        }}
+
+        /* Base dialog */
+        BaseDialog QStatusBar {{
+            font-weight:bold;
+        }}
+        BaseDialog QTextBrowser {{
+            font-size: {font_pt_text_browser}pt;
+        }}
+        BaseEditor QTableWidget DoubleClickEdit {{
+            border: none;
+        }}
+        FuelCalculator QLineEdit[readOnly="true"]{{
+            background: {color_active_window};
+        }}
+        About QLabel {{
+            font-size: {font_pt_text_browser}pt;
+        }}
+        About QTextBrowser {{
+            border: none;
+        }}
+        About #labelAppName {{
+            font-size: {font_pt_app_name}pt;
+        }}
+    """
+    return style

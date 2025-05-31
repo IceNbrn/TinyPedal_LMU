@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,8 +22,8 @@ Friction circle Widget
 
 from collections import deque
 
-from PySide2.QtCore import Qt, QPointF, QRectF
-from PySide2.QtGui import QPainter, QPixmap, QRadialGradient, QPen, QBrush, QColor
+from PySide2.QtCore import QPointF, QRectF, Qt
+from PySide2.QtGui import QBrush, QColor, QPainter, QPen, QPixmap, QRadialGradient
 
 from .. import calculation as calc
 from ..module_info import minfo
@@ -122,10 +122,17 @@ class Realtime(Overlay):
                 self.checked = True
 
             # Read acceleration data
-            temp_gforce_raw = self.gforce_orientation(
-                minfo.force.lgtGForceRaw,
-                minfo.force.latGForceRaw,
-            )
+            if self.wcfg["show_inverted_orientation"]:
+                temp_gforce_raw = (  # accel top, brake bottom
+                    round(minfo.force.lgtGForceRaw, 3),
+                    round(-minfo.force.latGForceRaw, 3),
+                )
+            else:
+                temp_gforce_raw = (  # brake top, accel bottom
+                    round(-minfo.force.lgtGForceRaw, 3),
+                    round(minfo.force.latGForceRaw, 3),
+                )
+
             if self.gforce_raw != temp_gforce_raw:
                 self.gforce_raw = temp_gforce_raw
                 # Scale position coordinate to global
@@ -295,10 +302,3 @@ class Realtime(Overlay):
             Qt.AlignCenter,
             f"{minfo.force.maxLatGForce:.2f}"[:4]
         )
-
-    # Additional methods
-    def gforce_orientation(self, lgt, lat):
-        """G force orientation, round to 3 digits"""
-        if self.wcfg["display_orientation"]:
-            return round(lgt, 3), round(-lat, 3)  # accel top, brake bottom
-        return round(-lgt, 3), round(lat, 3)

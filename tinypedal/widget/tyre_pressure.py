@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,9 +20,9 @@
 Tyre pressure Widget
 """
 
-from .. import calculation as calc
-from ..regex_pattern import TEXT_NOTAVAILABLE
 from ..api_control import api
+from ..const_common import TEXT_NA
+from ..units import set_unit_pressure
 from ._base import Overlay
 
 
@@ -43,6 +43,9 @@ class Realtime(Overlay):
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         bar_width = font_m.width * 4 + bar_padx
 
+        # Config units
+        self.unit_pres = set_unit_pressure(self.cfg.units["tyre_pressure_unit"])
+
         # Base style
         self.setStyleSheet(self.set_qss(
             font_family=self.wcfg["font_name"],
@@ -62,7 +65,7 @@ class Realtime(Overlay):
             bg_color=self.wcfg["bkg_color_tyre_pressure"]
         )
         self.bars_tpres = self.set_qlabel(
-            text=TEXT_NOTAVAILABLE,
+            text=TEXT_NA,
             style=bar_style_tpres,
             width=bar_width,
             count=4,
@@ -96,13 +99,4 @@ class Realtime(Overlay):
         """Tyre pressure"""
         if target.last != data:
             target.last = data
-            target.setText(self.tyre_pressure_units(data))
-
-    # Additional methods
-    def tyre_pressure_units(self, value):
-        """Tyre pressure units"""
-        if self.cfg.units["tyre_pressure_unit"] == "psi":
-            return f"{calc.kpa2psi(value):.1f}"
-        if self.cfg.units["tyre_pressure_unit"] == "bar":
-            return f"{calc.kpa2bar(value):.2f}"
-        return f"{value:.0f}"  # kPa
+            target.setText(f"{self.unit_pres(data):.2f}"[:4].strip("."))

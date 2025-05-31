@@ -1,3 +1,227 @@
+WIP
+-----------------------------
+* Weather Widget
+  - Add "decimal_places_temperature" option (requested by user "Dean688"). Default is "1" decimal place, set to "0" to hide decimals.
+    Note, when number of digits is less than expected, extra leading zero or decimal place will be added to fill the gap.
+
+2.29.2 (2025-05-29)
+-----------------------------
+* RestAPI Module
+  - Fixed an issue where some telemetry readings would stop updating if game was paused and resumed recently.
+
+2.29.1 (2025-05-25) hot fix
+-----------------------------
+* RestAPI Module
+  - Fixed a game-crash issue that related to some bugged "Rest API" URI resource addresses. Thanks to user "npastore28" for reporting the issue.
+    Note, this game-crash issue is due to a known issue in LMU's "Rest API", where some of the URI resource addresses (such as "garage/Pitstop/getPitstopTimes") are buggy and can crash game if accessed them under certain conditions.
+    This hot fix removed access to those bugged URI resource addresses.
+
+2.29.0 (2025-05-24)
+-----------------------------
+* Major change
+  - Optimized "Rest API" accessing methods, which adds additional update time delay that reduces unnecessary data accessing if API data has not changed recently.
+    For example, data from Rest API is accessed every 0.1 seconds on default setting, but if API data has not changed recently, the update interval will be increased up to every 2 seconds instead (for example, "pit strategy" data is only changed when user changes it in MFD menu).
+  - Separated "pit strategy" data accessing from other none-pit data (fuel, energy, damage, etc), and can be turned off completely via the new "enable_pit_strategy_access" option in RestAPI Module.
+    Note, recently there has been reports regarding an issue related to MFD "Pitstop" menu flickering in "LMU", which can be caused by accessing "pit strategy" data frequently. This flickering issue should not be a concern now for TinyPedal with the new accessing methods mentioned above.
+    Additionally, a new "enable_pit_strategy_access" option is provided in RestAPI Module, which allows disabling "pit strategy" data accessing completely and avoids the flickering issue.
+    However note, flickering issue can still be triggered by other programs or plugins that have frequently accessed to those "pit strategy" data.
+
+* RestAPI Module
+  - Apply additional time delay to update interval when data has not changed recently, up to 2 seconds max update interval. Update interval will be reset if data has updated recently. This change helps avoid unnecessary frequent data accessing.
+  - Add "enable_pit_strategy_access" option, which allows turning off "pit strategy" data accessing completely. Note, "Pit stop estimate Widget" will not be able to display pit data if this option is turned off.
+
+* [New]Suspension force Widget
+  - Show visualized suspension force (Newtons) and ratio (percent).
+
+* Suspension position Widget
+  - Add "show_third_spring_position_mark" option, which shows front and rear third spring position mark relative to each suspension position.
+
+* Track map Widget
+  - Add "display_orientation" option (requested by user "peterkasbergen" and "lucamilan87"), which sets track map display orientation in degrees.
+    For example, a "270" value will rotate map by "270" degrees clockwise. Default value is "0", which always displays track map "north up" in game's coordinate system.
+  - Improved "display_detail_level" calculation to work with smaller maps.
+
+* Pit stop estimate Widget
+  - Add "stop_go_penalty_time" option, which sets stop go penalty time in seconds. Default value is "10" seconds.
+
+* Misc
+  - Add "horizontal_gap", "vertical_gap" options for following widgets: Brake pressure, Ride height, Slip ratio, Suspension force, Suspension position, Tyre load.
+  - Fixed an issue that would add time increment on pitout prediction (Track map Widget) while outside pit lane.
+  - Renamed "display_orientation" option to "show_inverted_orientation" in Friction circle Widget.
+
+2.28.1 (2025-05-08)
+-----------------------------
+* Gear Widget
+  - Add "show_rpm_reading" option (requested by users "ebeninca" and "EmperorOfFinland"), which shows RPM charge reading on RPM bar. This option is disabled by default.
+  - Add "show_battery_reading" option, which shows battery charge reading (percentage) on battery bar. This option is disabled by default.
+  - Add "decimal_places, font_size, font_weight, font_color, offset_x, text_alignment" options for customizing RPM and battery charge readings.
+
+* Track map Widget
+  - Add "show_pitout_prediction_while_requested_pitstop" option (requested by user "geims12"), which shows pit out on-track position indication while player has requested pitstop and not in pit lane. This option is enabled by default.
+
+* Misc
+  - Fixed an issue that would prevent Track Info Editor from opening while "API state override" is activated.
+
+2.28.0 (2025-05-05)
+-----------------------------
+* Major change
+  - New "Pit stop estimate Widget" and pit stop timing calculation for accurately estimating pit stop duration, designed specifically for "LMU".
+  - New "Track Info" preset and "Track Info Editor" for customizing track info, which is currently used for various pit stop related calculation.
+
+* [New]Pit stop estimate Widget
+  - Show estimated pit-lane pass through (drive-through) time, calculated from pit-entry to pit-exit line. Average accuracy is within 0.5 seconds.
+  - Show estimated pit stop time while making a service stop or serving a penalty, calculated according to each setting from MFD "Pitstop" page and underlying service timing and concurrency differences. Average accuracy is within 1 seconds.
+  - Show maximum total random delay which game may add on top of pit stop time. For example, if estimated pit stop time is 12.0s, and maximum delay is +3.0s, then final pit stop time will be between 12.0s and 15.0s.
+  - Show estimated minimum total pit time, which is the sum of "pit-lane pass through", "pit stop time", and optional customizable "additional time spent in pit".
+  - Show estimated maximum total pit time, which is the sum of "minimum total pit time" and "maximum total random delay".
+  - Show pit timer, useful for comparing against other pit time readings.
+  - Show actual relative refilling, as the total additional fuel or virtual energy that will be added in next pit stop.
+  - Show total relative refilling, as the total additional fuel or virtual energy that is required to finish the race.
+  - See User Guide "Pit stop estimate" section for details.
+
+* [New]Track Info Editor
+  - Add "Track Info Editor" to "Tools" menu for customizing track info. See User Guide "Track Info Editor" section for details.
+
+* [New]Tracks Preset
+  - Add new "tracks.json" preset file in "settings" folder, which is used for storing track info. Track info is automatically recorded by Mapping Module.
+  - "tracks" file name is now reserved for "tracks.json" preset.
+
+* Mapping Module
+  - Now records pit-entry position, pit-exit position, pit speed limit data, and saves in "tracks.json" preset.
+    Note, for any new tracks, at least one pit-lane pass through is required to record data for pass through time calculation.
+
+* RestAPI Module
+  - Now processes user pit stop setting data from LMU Rest API for pit stop timing calculation.
+
+* Track map Widget
+  - Now reads pit-exit position data from Mapping Module for calculating pit-out predication.
+
+* Misc
+  - Updated User Guide info for Tracks Preset, Track Info Editor, Pit stop estimate Widget.
+  - Removed obsolete setting "meters_driven" from Cruise Widget.
+
+2.27.1 (2025-04-28) hot fix
+-----------------------------
+* Preset
+  - Fixed an issue that would prevent user from creating "new preset" via Preset tab.
+
+2.27.0 (2025-04-28)
+-----------------------------
+* Window dialog & DPI scaling
+  - Add "window_color_theme" option in global user config, which sets color theme for main window and dialog. Default theme is "Dark". This option does not affect overlay widget.
+    Color theme can be quickly toggled via "UI" button on main window status bar.
+  - Add "enable_high_dpi_scaling" option in global user config, which enables window dialog and overlay widget auto-scaling under high DPI screen resolution. This option is disabled by default.
+    High DPI scaling mode can be quickly toggled via "Scale" button on main window status bar.
+    On Windows, scaling is determined by percentage value set in "Display" > "Scale and Layout" in windows setting.
+    For example, "200%" scale in windows setting will double the size of main window dialog and also every widget.
+    On Linux, DPI scaling may already be forced "ON" in some system, which this option may not have effect.
+  - Fixed broken main window dialog view under high DPI screen resolution. Main window dialog font & elements now scale relatively with system DPI scaling setting.
+    Note, while TinyPedal is running, changing screen DPI scaling may still break main window dialog view, and requires restarting TinyPedal to scale correctly according to new DPI scaling setting.
+    Alternatively, enable the new "enable_high_dpi_scaling" option to allow auto-scaling window dialog while TinyPedal is running.
+
+* Linux
+  - Add "enable_x11_platform_plugin_override" option in "Compatibility", which sets Qt platform plugin type to "X11" via environment variable on Linux. (thanks to @berarma & @SynthetikzZ for Linux assistance)
+    This option may help work around some issues with overlay dragging and position on "Wayland". This option requires restarting TinyPedal to take effect. This option is enabled by default on Linux.
+  - Fixed missing end slash "/" from global config path that saved global config files in wrong folder.
+    For existing Linux user, manual correction is required.
+    In "home/username/.config/" folder, find following files and rename:
+    "TinyPedalconfig.json" to "config.json"
+    "TinyPedalconfig.lock" to "config.lock"
+    "TinyPedaldriver.stats" to "driver.stats"
+    "TinyPedalpid.log" to "pid.log"
+    Then move those files back to "home/username/.config/TinyPedal/" folder.
+
+* Cruise Widget
+  - Now reads "scaled track clock time" ("LMU" only) from Rest API if available, which allows synchronizing track clock time and time scale in both singleplayer and multiplayer in "LMU".
+  - Add "show_time_scale" option, which shows current session track clock time scale multiplier.
+
+* Misc
+  - Add "Restart TinyPedal" to "Window" menu for quickly restarting the APP.
+  - Heatmap Editor now shows temperature entries in table view, and supports multi-selection for offsetting and removing temperature, and up to one decimal place is kept.
+  - Show "Preset Locked" notification on main window if currently loaded preset is locked.
+  - Add new command line arguments "-p, --pyside" for choosing PySide (Qt for Python) module version.
+    Currently, this option is only available while "running from source", and mainly for testing purpose or used on platform where PySide2 is no longer available.
+  - Fixed a visual problem where fuel level bar indicator does not update remaining level if fuel delta data was not yet recorded for current track.
+  - Added new contributor "SynthetikzZ" to contributors.md.
+
+2.26.0 (2025-04-02)
+-----------------------------
+* Radar Widget
+  - Add "show_overlap_indicator_in_cone_style" option (optional), which shows overlap indicator in "cone style" instead of "boundary style".
+  - Add "overlap_cone_angle" option, which sets cone display angle in degrees. This option does not affect overlap detection range.
+  - Renamed "overlap_detection_range_multiplier" option to "overlap_nearby_range_multiplier", which sets nearby vehicle overlap detection range multiplier.
+    A value of "5" would result a 5-vehicle-wide detection range. Default is "5" vehicle-wide.
+  - Add "overlap_critical_range_multiplier" option, which sets nearby vehicle critical overlap detection range multiplier. Default is "1" vehicle-wide.
+  - Add "show_angle_mark" and angle mark style options, which show angle mark (fixed 45 degrees) on radar background.
+  - Fixed radar circle background that was incorrectly displayed on top of overlap indicators.
+
+* Relative, Rivals, Standings Widget
+  - Add "show_delta_laptime" option for Rivals & Standings Widget (requested by user "oljemace"), which shows lap time difference (delta) between player and opponents from most recent laps.
+    A green color (default) delta indicates that player's recent lap time is faster than opponent, while orange color delta indicates the opposite.
+    Number of delta lap time display can be set with "number_of_delta_laptime" option, minimum number is limited to 2, maximum is limited to 5.
+    The default layout order shows delta lap time records from right side column (most recent lap) to left. Enable "show_inverted_delta_laptime_layout" option to invert the layout.
+  - Add "show_position_change" option (requested by user "bongio94"), which shows overall driver position change relative to overall qualification position.
+  - Add "show_position_change_in_class" option, which shows driver position change in class instead of overall. This option is enabled by default.
+  - Add "time_gap_align_center" option for Relative Widget.
+  - Add "time_interval_align_center" option for Rivals Widget.
+
+* User Preset
+  - Add "Lock Preset" and "Unlock Preset" toggle to "right-click" menu in "Preset" tab, which allows locking or unlocking user preset file.
+    Any changes made to locked preset will still take effect, but will not be saved to file. APP "version" tag will be attached to the preset that is locked with.
+    This feature can be useful for keeping preset unchanged while testing new updates or features.
+    Note, this "lock" feature only prevents any changes that made through this APP from saving to locked preset file.
+    It does not prevent user from modifying or deleting locked preset file by other means.
+  - Add "file lock" config file (config.lock) that saves in "global user configuration" folder, which keeps a list of locked file names.
+
+* Misc
+  - Fixed an issue where changes from "Units" and "Global Font Override" dialogs would not take effect after clicked "Apply" more than once.
+  - Fixed a rare glitch where widget could be dragged around while "Lock Overlay" is enabled.
+  - Various optimization to widgets, modules and save system.
+  - Added new contributor "Andres (Corti)" to contributors.md.
+
+2.25.1 (2025-03-18)
+-----------------------------
+* Important Fix
+  - Fixed an issue where all driver stats could be completely reset if driver.stats file could not be accessed while saving.
+    Stats file saving now uses "maximum_saving_attempts" value in "Application" setting for saving retries, and backup accordingly.
+  - Fixed a rare case where extremely small fuel tank capacity would break fuel calculation,
+    such as 1 liter or less tank capacity found on some unusual vehicle mods in "RF2".
+
+* Fuel Module
+  - Now supports and auto-detects "battery charge usage" as a primary consumption type with charge regeneration taken into
+    calculation for non-hybrid pure electric vehicles such as "FE Gen3" that is based on "RF2" new electric motor system.
+    Note, some electric vehicles in "RF2" are based on older electric system and not utilizing the new battery charge
+    and electric motor system, such as "FE Gen1" & "FE Gen2".
+
+* Hybrid Module
+  - Add estimated battery charge net change (gain or loss) per lap and delta calculation.
+  - Add "minimum_delta_distance" option, which sets minimum recording distance (in meters) between each delta sample.
+  - Add alternative electric motor state checker for electric vehicle that doesn't have motor state available.
+    Battery usage and state info can now be correctly displayed in "Battery, Gear, P2P" Widget for electric vehicles
+    that are based on "RF2" new electric motor system but don't have motor state available.
+
+* Battery Widget
+  - Add "show_estimated_net_change" option, which shows estimated battery charge net change from current lap.
+    Positive value indicates net gain (regen higher than drain); negative indicates net loss (drain higher than regen).
+    Total net change reading is more accurate for vehicles that constantly consume battery charge, such as "FE" or "Hypercar" class.
+    It is less useful for vehicles that only utilize electric motor for a short duration, such as "P2P".
+    Note, at least one full lap (excludes pit-out or first lap) is required to generate estimated net change data.
+
+* Brake temperature, Tyre carcass, Tyre inner layer, Tyre temperature Widget
+  - Show unavailable sign as "-" if temperature drops below -100 degrees Celsius.
+
+* Fuel Widget
+  - Show "battery usage" (in percentage) data instead of fuel usage for non-hybrid pure electric vehicles.
+    Note, since multiple different electric systems exist in "RF2", there is no reliable way to distinguish pure
+    electric vehicles from fuel or hybrid vehicles, it is important to make sure "fuel_unit" option in "Units" setting
+    is set to "Liter" in order to correctly display battery charge usage in "percentage" for pure electric vehicles.
+  - Fixed an issue where "starting fuel level" indicator would sometimes incorrectly reset its position.
+
+* Misc
+  - Various small code optimization, further reduced memory usage.
+  - Renamed "Units and symbols" to "Units" in config dialog and user guide.
+  - Improved user guide navigation.
+
 2.25.0 (2025-03-09)
 -----------------------------
 * General

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,10 +21,21 @@ Module info
 """
 
 from __future__ import annotations
+
+from array import array
 from collections import deque
 from typing import NamedTuple
 
-MAX_VEHICLES = 128
+from .const_common import (
+    ABS_ZERO_CELSIUS,
+    DELTA_DEFAULT,
+    MAX_METERS,
+    MAX_SECONDS,
+    MAX_VEHICLES,
+    PITEST_DEFAULT,
+    QUALIFY_DEFAULT,
+    REL_TIME_DEFAULT,
+)
 
 
 class ConsumptionDataSet(NamedTuple):
@@ -43,9 +54,9 @@ class ConsumptionDataSet(NamedTuple):
 class WeatherNode(NamedTuple):
     """Weather forecast node info"""
 
-    start_minute: float = 9999.0
+    start_seconds: float = MAX_SECONDS
     sky_type: int = -1
-    temperature: float = -273.0
+    temperature: float = ABS_ZERO_CELSIUS
     rain_chance: float = -1.0
 
 
@@ -70,7 +81,7 @@ class DeltaInfo:
     )
 
     def __init__(self):
-        self.deltaBestData: tuple = ((0.0,0.0),)
+        self.deltaBestData: tuple = DELTA_DEFAULT
         self.deltaBest: float = 0.0
         self.deltaLast: float = 0.0
         self.deltaSession: float = 0.0
@@ -135,7 +146,6 @@ class FuelInfo:
         "estimatedValidConsumption",
         "estimatedLaps",
         "estimatedMinutes",
-        "estimatedEmptyCapacity",
         "estimatedNumPitStopsEnd",
         "estimatedNumPitStopsEarly",
         "deltaConsumption",
@@ -159,7 +169,6 @@ class FuelInfo:
         self.estimatedValidConsumption: float = 0.0
         self.estimatedLaps: float = 0.0
         self.estimatedMinutes: float = 0.0
-        self.estimatedEmptyCapacity: float = 0.0
         self.estimatedNumPitStopsEnd: float = 0.0
         self.estimatedNumPitStopsEarly: float = 0.0
         self.deltaConsumption: float = 0.0
@@ -197,6 +206,7 @@ class HybridInfo:
         "batteryRegen",
         "batteryDrainLast",
         "batteryRegenLast",
+        "batteryNetChange",
         "motorActiveTimer",
         "motorInactiveTimer",
         "motorState",
@@ -210,6 +220,7 @@ class HybridInfo:
         self.batteryRegen: float = 0.0
         self.batteryDrainLast: float = 0.0
         self.batteryRegenLast: float = 0.0
+        self.batteryNetChange: float = 0.0
         self.motorActiveTimer: float = 0.0
         self.motorInactiveTimer: float = 0.0
         self.motorState: int = 0
@@ -225,6 +236,10 @@ class MappingInfo:
         "elevations",
         "sectors",
         "lastModified",
+        "pitEntryPosition",
+        "pitExitPosition",
+        "pitLaneLength",
+        "pitSpeedLimit",
     )
 
     def __init__(self):
@@ -236,6 +251,10 @@ class MappingInfo:
         self.elevations: tuple[tuple[float, float], ...] | None = None
         self.sectors: tuple[int, int] | None = None
         self.lastModified: float = 0.0
+        self.pitEntryPosition: float = 0.0
+        self.pitExitPosition: float = 0.0
+        self.pitLaneLength: float = 0.0
+        self.pitSpeedLimit: float = 0.0
 
 
 class NotesInfo:
@@ -266,12 +285,14 @@ class RelativeInfo:
         "relative",
         "standings",
         "classes",
+        "qualifications",
     )
 
     def __init__(self):
-        self.relative: list[int] = [-1]
+        self.relative: list[list | tuple] = [REL_TIME_DEFAULT]
         self.standings: list[int] = [-1]
-        self.classes: list[list] = [[0, 1, "", 0, 0, -1, -1, False]]
+        self.classes: list[list] = [[0, 1, "", 0.0, -1, -1, False]]
+        self.qualifications: list[tuple[int, int]] = [QUALIFY_DEFAULT]
 
 
 class RestAPIInfo:
@@ -279,6 +300,7 @@ class RestAPIInfo:
 
     __slots__ = (
         "timeScale",
+        "trackClockTime",
         "privateQualifying",
         "steeringWheelRange",
         "currentVirtualEnergy",
@@ -289,10 +311,13 @@ class RestAPIInfo:
         "forecastRace",
         "brakeWear",
         "suspensionDamage",
+        "pitStopEstimate",
+        "pitTimeReference",
     )
 
     def __init__(self):
         self.timeScale: int = 1
+        self.trackClockTime: float = -1.0
         self.privateQualifying: int = 0
         self.steeringWheelRange: float = 0.0
         self.currentVirtualEnergy: float = 0.0
@@ -303,6 +328,8 @@ class RestAPIInfo:
         self.forecastRace: list[WeatherNode] | None = None
         self.brakeWear: list[float] = [-1.0] * 4
         self.suspensionDamage: list[float] = [-1.0] * 4
+        self.pitStopEstimate: tuple[float, float, float, float, int] = PITEST_DEFAULT
+        self.pitTimeReference: dict = {}
 
 
 class SectorsInfo:
@@ -319,7 +346,7 @@ class SectorsInfo:
     )
 
     def __init__(self):
-        temp_sector = [99999.0] * 3
+        temp_sector = [MAX_SECONDS] * 3
         self.noDeltaSector: bool = True
         self.sectorIndex: int = -1
         self.sectorPrev: list[float] = temp_sector
@@ -353,6 +380,7 @@ class VehiclesInfo:
         "nearestLine",
         "nearestTraffic",
         "nearestYellow",
+        "leaderBestLapTime",
     )
 
     def __init__(self):
@@ -364,24 +392,43 @@ class VehiclesInfo:
         )
         self.dataSetVersion: int = -1
         self.drawOrder: list = [0]
-        self.nearestLine: float = 999999.0
-        self.nearestTraffic: float = 999999.0
-        self.nearestYellow: float = 999999.0
+        self.nearestLine: float = MAX_METERS
+        self.nearestTraffic: float = MAX_SECONDS
+        self.nearestYellow: float = MAX_METERS
+        self.leaderBestLapTime: float = 0.0
 
 
 class VehiclePitTimer:
     """Vehicle pit timer"""
 
     __slots__ = (
-        "last_state",
-        "start",
         "elapsed",
+        "_last_state",
+        "_start",
     )
 
     def __init__(self):
-        self.last_state: int = 0
-        self.start: float = 0.0
         self.elapsed: float = 0.0
+        self._last_state: int = 0
+        self._start: float = 0.0
+
+    def update(self, in_pit: int, elapsed_time: float):
+        """Calculate pit time
+
+        Pit state: 0 = not in pit, 1 = in pit, 2 = in garage.
+        """
+        # Pit status check
+        if self._last_state != in_pit:
+            self._last_state = in_pit
+            self._start = elapsed_time
+        # Ignore pit timer in garage
+        if in_pit == 2:
+            self._start = -1
+            self.elapsed = 0
+            return
+        # Calculating pit time while in pit
+        if in_pit > 0 <= self._start:
+            self.elapsed = elapsed_time - self._start
 
 
 class VehicleDataSet:
@@ -391,15 +438,15 @@ class VehicleDataSet:
         "isPlayer",
         "positionOverall",
         "positionInClass",
+        "qualifyOverall",
+        "qualifyInClass",
         "driverName",
         "vehicleName",
         "vehicleClass",
-        "sessionBestLapTime",
         "classBestLapTime",
         "bestLapTime",
         "lastLapTime",
         "lapProgress",
-        "relativeTimeGap",
         "gapBehindNextInClass",
         "gapBehindNext",
         "gapBehindLeader",
@@ -418,21 +465,23 @@ class VehicleDataSet:
         "relativeRotatedPositionX",
         "relativeRotatedPositionY",
         "pitTimer",
+        "lapTimeHistory",
+        "_lap_start_time",
     )
 
     def __init__(self):
         self.isPlayer: bool = False
         self.positionOverall: int = 0
         self.positionInClass: int = 0
+        self.qualifyOverall: int = 0
+        self.qualifyInClass: int = 0
         self.driverName: str = ""
         self.vehicleName: str = ""
         self.vehicleClass: str = ""
-        self.sessionBestLapTime: float = 99999.0
-        self.classBestLapTime: float = 99999.0
-        self.bestLapTime: float = 99999.0
-        self.lastLapTime: float = 99999.0
+        self.classBestLapTime: float = MAX_SECONDS
+        self.bestLapTime: float = MAX_SECONDS
+        self.lastLapTime: float = MAX_SECONDS
         self.lapProgress: float = 0.0
-        self.relativeTimeGap: float = 0.0
         self.gapBehindNextInClass: float = 0.0
         self.gapBehindNext: float = 0.0
         self.gapBehindLeader: float = 0.0
@@ -441,7 +490,7 @@ class VehicleDataSet:
         self.inPit: int = 0
         self.isClassFastestLastLap: bool = False
         self.numPitStops: int = 0
-        self.pitState: int = 0
+        self.pitState: bool = False
         self.tireCompoundFront: str = ""
         self.tireCompoundRear: str = ""
         self.relativeOrientationRadians: float = 0.0
@@ -451,15 +500,29 @@ class VehicleDataSet:
         self.relativeRotatedPositionX: float = 0.0
         self.relativeRotatedPositionY: float = 0.0
         self.pitTimer: VehiclePitTimer = VehiclePitTimer()
+        self.lapTimeHistory: array = array("d", [0.0] * 5)
+        self._lap_start_time: float = 0.0
+
+    def update_lap_history(self, lap_start: float, lap_elapsed: float, laptime_last: float):
+        """Update lap time history"""
+        # Check 2 sec after start new lap (for validating last lap time)
+        if self._lap_start_time != lap_start and lap_elapsed - lap_start > 2:
+            data = self.lapTimeHistory
+            if self._lap_start_time < lap_start:
+                data[0], data[1], data[2], data[3] = data[1], data[2], data[3], data[4]
+                if laptime_last > 0:  # valid last lap time
+                    data[4] = laptime_last
+                else:
+                    data[4] = 0.0
+            else:  # reset all laptime
+                data[0] = data[1] = data[2] = data[3] = data[4] = 0.0
+            self._lap_start_time = lap_start
 
 
 class WheelsInfo:
     """Wheels module output data"""
 
     __slots__ = (
-        "vehicleName",
-        "radiusFront",
-        "radiusRear",
         "lockingPercentFront",
         "lockingPercentRear",
         "corneringRadius",
@@ -467,9 +530,6 @@ class WheelsInfo:
     )
 
     def __init__(self):
-        self.vehicleName: str = ""
-        self.radiusFront: float = 0.0
-        self.radiusRear: float = 0.0
         self.lockingPercentFront: float = 0.0
         self.lockingPercentRear: float = 0.0
         self.corneringRadius: float = 0.0

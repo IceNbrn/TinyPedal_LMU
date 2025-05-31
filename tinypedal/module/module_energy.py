@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,28 +22,31 @@ Energy module
 
 from __future__ import annotations
 
+from .. import calculation as calc
+from ..api_control import api
+from ..const_file import FileExt
+from ..module_info import minfo
 from ._base import DataModule
 from .module_fuel import calc_data
-from ..module_info import minfo
-from ..api_control import api
-from ..file_constants import FileExt
-from .. import calculation as calc
 
 
 class Realtime(DataModule):
     """Energy usage data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
         userpath_energy_delta = self.cfg.path.energy_delta
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:

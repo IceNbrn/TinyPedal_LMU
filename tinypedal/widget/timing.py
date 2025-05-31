@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,10 +22,9 @@ Timing Widget
 
 from .. import calculation as calc
 from ..api_control import api
+from ..const_common import MAX_SECONDS
 from ..module_info import minfo
 from ._base import Overlay
-
-MAGIC_NUM = 99999
 
 
 class Realtime(Overlay):
@@ -218,7 +217,7 @@ class Realtime(Overlay):
         # Last data
         self.checked = False
         self.player_index = 0
-        self.laptime_sbst = MAGIC_NUM
+        self.laptime_sbst = MAX_SECONDS
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
@@ -230,13 +229,10 @@ class Realtime(Overlay):
 
             # Session best laptime
             if self.wcfg["show_session_best"]:
-                laptime_best_tmp = api.read.timing.best_laptime(self.player_index)
-
-                if 0 < laptime_best_tmp < self.laptime_sbst:
-                    if self.wcfg["show_session_best_from_same_class_only"]:
-                        if api.read.vehicle.same_class(self.player_index):
-                            self.laptime_sbst = laptime_best_tmp
-                    else:
+                if (not self.wcfg["show_session_best_from_same_class_only"]
+                    or api.read.vehicle.same_class(self.player_index)):
+                    laptime_best_tmp = api.read.timing.best_laptime(self.player_index)
+                    if 0 < laptime_best_tmp < self.laptime_sbst:
                         self.laptime_sbst = laptime_best_tmp
 
                 if self.player_index < api.read.vehicle.total_vehicles():
@@ -287,7 +283,7 @@ class Realtime(Overlay):
         else:
             if self.checked:
                 self.checked = False
-                self.laptime_sbst = MAGIC_NUM  # reset laptime
+                self.laptime_sbst = MAX_SECONDS  # reset laptime
 
     # GUI update methods
     def update_laptime(self, target, data, prefix, verify=False):
@@ -297,7 +293,7 @@ class Realtime(Overlay):
             if verify:
                 target.setStyleSheet(self.bar_style_last[data > 0])
                 data = abs(data)
-            if 0 < data < MAGIC_NUM:
+            if 0 < data < MAX_SECONDS:
                 text = f"{prefix}{calc.sec2laptime(data)[:8]: >8}"
             else:
                 text = f"{prefix}-:--.---"

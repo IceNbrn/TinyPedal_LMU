@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,31 +22,30 @@ Track map viewer
 
 import os
 
-from PySide2.QtCore import Qt, Signal, QPoint, QPointF, QRect
-from PySide2.QtGui import QPainterPath, QPainter, QPen
+from PySide2.QtCore import QPoint, QPointF, QRect, Qt, Signal
+from PySide2.QtGui import QPainter, QPainterPath, QPen
 from PySide2.QtWidgets import (
+    QAbstractSpinBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
     QHBoxLayout,
-    QVBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
-    QMessageBox,
-    QFileDialog,
     QMenu,
-    QWidget,
-    QSpinBox,
-    QDoubleSpinBox,
-    QAbstractSpinBox,
+    QMessageBox,
     QSlider,
-    QFrame,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ..setting import ConfigType, cfg
-from ._common import BaseDialog, QSS_EDITOR_BUTTON
-from . config import UserConfig
 from .. import calculation as calc
-from ..file_constants import FileExt, FileFilter
+from ..const_file import ConfigType, FileExt, FileFilter
+from ..setting import cfg
 from ..userfile.track_map import load_track_map_file
+from ._common import BaseDialog, CompactButton, UIScaler
+from .config import UserConfig
 
 
 class TrackMapViewer(BaseDialog):
@@ -61,7 +60,7 @@ class TrackMapViewer(BaseDialog):
 
         # Set layout
         layout_main = QVBoxLayout()
-        layout_main.setContentsMargins(5,5,5,5)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         layout_main.addWidget(self.trackmap_panel)
         self.setLayout(layout_main)
 
@@ -75,7 +74,7 @@ class TrackMapViewer(BaseDialog):
 
         layout_map_wrap = QVBoxLayout()
         layout_map_wrap.addWidget(self.trackmap)
-        layout_map_wrap.setContentsMargins(0,0,0,0)
+        layout_map_wrap.setContentsMargins(0, 0, 0, 0)
 
         frame_trackmap = QFrame(self)
         frame_trackmap.setLayout(layout_map_wrap)
@@ -85,10 +84,10 @@ class TrackMapViewer(BaseDialog):
         layout_trackmap.addLayout(self.trackmap.set_button_layout())
         layout_trackmap.addWidget(frame_trackmap)
         layout_trackmap.addLayout(self.trackmap.set_control_layout())
-        layout_trackmap.setContentsMargins(0,0,0,0)
+        layout_trackmap.setContentsMargins(0, 0, 0, 0)
 
         trackmap_panel = QFrame(self)
-        trackmap_panel.setMinimumSize(500, 500)
+        trackmap_panel.setMinimumSize(UIScaler.size(38), UIScaler.size(38))
         trackmap_panel.setLayout(layout_trackmap)
         return trackmap_panel
 
@@ -141,7 +140,7 @@ class MapView(QWidget):
             "marked_coordinates": True,
             "highlighted_coordinates": True,
             "separator2":"",
-            "dark_background": False,
+            "dark_background": cfg.application["window_color_theme"] == "Dark",
         }
 
         # Set layout
@@ -231,12 +230,10 @@ class MapView(QWidget):
 
     def set_button_layout(self):
         """Set button layout"""
-        button_load = QPushButton("Load Map")
-        button_load.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_load = CompactButton("Load Map")
         button_load.clicked.connect(self.open_trackmap)
 
-        button_config = QPushButton("Config")
-        button_config.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_config = CompactButton("Config")
         button_config.clicked.connect(self.open_config_dialog)
 
         layout_button = QHBoxLayout()

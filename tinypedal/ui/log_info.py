@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,20 +20,18 @@
 Log window
 """
 
-from PySide2.QtGui import QTextCursor
+from PySide2.QtGui import QTextCursor, QTextOption
 from PySide2.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QDialogButtonBox,
-    QTextBrowser,
-    QPushButton,
     QFileDialog,
+    QHBoxLayout,
     QMessageBox,
+    QTextBrowser,
+    QVBoxLayout,
 )
 
+from ..const_file import FileFilter
 from ..main import log_stream
-from ..file_constants import FileFilter
-from ._common import BaseDialog, QSS_EDITOR_BUTTON
+from ._common import BaseDialog, CompactButton, UIScaler
 
 
 class LogInfo(BaseDialog):
@@ -45,30 +43,25 @@ class LogInfo(BaseDialog):
 
         # Text view
         self.log_view = QTextBrowser(self)
-        self.log_view.setStyleSheet("font-size: 12px;")
-        self.log_view.setMinimumSize(550, 300)
+        self.log_view.setMinimumSize(UIScaler.size(42), UIScaler.size(22))
+        self.log_view.setWordWrapMode(QTextOption.NoWrap)
         self.refresh_log()
 
         # Button
-        button_refresh = QPushButton("Refresh")
+        button_refresh = CompactButton("Refresh")
         button_refresh.clicked.connect(self.refresh_log)
-        button_refresh.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_save = QPushButton("Save")
+        button_save = CompactButton("Save")
         button_save.clicked.connect(self.save_log)
-        button_save.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_copy = QPushButton("Copy")
+        button_copy = CompactButton("Copy")
         button_copy.clicked.connect(self.copy_log)
-        button_copy.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_clear = QPushButton("Clear")
+        button_clear = CompactButton("Clear")
         button_clear.clicked.connect(self.clear_log)
-        button_clear.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_close = QDialogButtonBox(QDialogButtonBox.Close)
-        button_close.rejected.connect(self.reject)
-        button_close.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.reject)
 
         # Layout
         layout_button = QHBoxLayout()
@@ -76,13 +69,13 @@ class LogInfo(BaseDialog):
         layout_button.addWidget(button_save)
         layout_button.addWidget(button_copy)
         layout_button.addWidget(button_clear)
+        layout_button.addStretch(1)
         layout_button.addWidget(button_close)
-        layout_button.setContentsMargins(5,5,5,5)
 
         layout_main = QVBoxLayout()
         layout_main.addWidget(self.log_view)
         layout_main.addLayout(layout_button)
-        layout_main.setContentsMargins(3,3,3,7)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
 
     def refresh_log(self):
@@ -92,7 +85,7 @@ class LogInfo(BaseDialog):
 
     def clear_log(self):
         """Clear log"""
-        if self.confirm_operation(message="Are you sure to clear all log?"):
+        if self.confirm_operation(message="Clear all log?"):
             log_stream.truncate(0)
             log_stream.seek(0)
             self.refresh_log()

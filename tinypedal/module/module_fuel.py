@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,42 +21,41 @@ Fuel module
 """
 
 from __future__ import annotations
-from functools import partial
+
 from math import ceil
-from collections.abc import Callable
+from typing import Callable
 
-from ._base import DataModule
-from ..module_info import minfo, FuelInfo, ConsumptionDataSet
-from ..api_control import api
-from ..file_constants import FileExt
 from .. import calculation as calc
+from ..api_control import api
+from ..const_common import DELTA_DEFAULT, DELTA_ZERO, FLOAT_INF, POS_XYZ_ZERO
+from ..const_file import FileExt
+from ..module_info import ConsumptionDataSet, FuelInfo, minfo
 from ..userfile.fuel_delta import (
-    load_fuel_delta_file,
-    save_fuel_delta_file,
     load_consumption_history_file,
+    load_fuel_delta_file,
     save_consumption_history_file,
+    save_fuel_delta_file,
 )
-
-DELTA_ZERO = 0.0,0.0
-DELTA_DEFAULT = (DELTA_ZERO,)
-
-round6 = partial(round, ndigits=6)
+from ._base import DataModule, round6
 
 
 class Realtime(DataModule):
     """Fuel usage data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
         userpath_fuel_delta = self.cfg.path.fuel_delta
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:
@@ -105,7 +104,7 @@ def update_consumption_history():
                 lastLapUsedEnergy=minfo.energy.lastLapConsumption,
                 batteryDrainLast=minfo.hybrid.batteryDrainLast,
                 batteryRegenLast=minfo.hybrid.batteryRegenLast,
-                capacityFuel=api.read.vehicle.tank_capacity(),
+                capacityFuel=minfo.fuel.capacity,
             )
         )
         minfo.history.consumptionDataModified = True
@@ -138,9 +137,10 @@ def save_consumption_history(filepath: str, combo_id: str):
 
 def telemetry_fuel() -> tuple[float, float]:
     """Telemetry fuel"""
-    capacity = max(api.read.vehicle.tank_capacity(), 1)
-    amount_curr = api.read.vehicle.fuel()
-    return capacity, amount_curr
+    capacity = api.read.vehicle.tank_capacity()
+    if capacity == 1 or capacity == 0:  # pure electric powered vehicle
+        return 100, api.read.emotor.battery_charge() * 100
+    return capacity, api.read.vehicle.fuel()
 
 
 def calc_data(
@@ -156,13 +156,13 @@ def calc_data(
         filepath=filepath,
         filename=filename,
         extension=extension,
-        defaults=(DELTA_DEFAULT, 0, 0)
+        defaults=(DELTA_DEFAULT, 0.0, 0.0)
     )
     delta_list_raw = [DELTA_ZERO]  # distance, fuel used, laptime
     delta_list_temp = DELTA_DEFAULT  # last lap temp
     delta_fuel = 0.0  # delta fuel consumption compare to last lap
 
-    amount_start = 0.0  # start fuel reading
+    amount_start = -FLOAT_INF  # start fuel reading
     amount_last = 0.0  # last fuel reading
     amount_need_abs = 0.0  # total fuel (absolute) need to finish race
     amount_need_rel = 0.0  # total additional fuel (relative) need to finish race
@@ -177,14 +177,14 @@ def calc_data(
     est_pits_early = 0.0  # estimate end-lap pit stop counts
     used_est_less = 0.0  # estimate fuel consumption for one less pit stop
 
-    last_lap_stime = -1.0  # last lap start time
+    last_lap_stime = FLOAT_INF  # last lap start time
     laps_left = 0.0  # amount laps left at current lap distance
     end_timer_laps_left = 0.0  # amount laps left from start of current lap to end of race timer
     pos_recorded = 0.0  # last recorded vehicle position
     pos_last = 0.0  # last checked vehicle position
     pos_estimate = 0.0  # estimated vehicle position
     is_pos_synced = False  # vehicle position synced with API
-    gps_last = (0.0,0.0,0.0)  # last global position
+    gps_last = POS_XYZ_ZERO  # last global position
 
     while True:
         updating = yield None
@@ -203,7 +203,7 @@ def calc_data(
         # Read telemetry
         capacity, amount_curr = telemetry_func()
         lap_stime = api.read.timing.start()
-        laptime_curr = max(api.read.timing.current_laptime(), 0)
+        laptime_curr = api.read.timing.current_laptime()
         time_left = api.read.session.remaining()
         in_garage = api.read.vehicle.in_garage()
         pos_curr = api.read.lap.distance()
@@ -214,15 +214,21 @@ def calc_data(
         laptime_last = minfo.delta.lapTimePace
 
         # Realtime fuel consumption
+        if amount_start < amount_curr:
+            amount_start = amount_last = amount_curr
+
         if amount_last < amount_curr:
+            if api.read.vehicle.speed() > 1:  # regen check
+                used_curr += amount_last - amount_curr
+            else:  # pitstop refilling check
+                amount_start = amount_curr
             amount_last = amount_curr
-            amount_start = amount_curr
         elif amount_last > amount_curr:
             used_curr += amount_last - amount_curr
             amount_last = amount_curr
 
         # Lap start & finish detection
-        if lap_stime > last_lap_stime != -1:
+        if lap_stime > last_lap_stime:
             if len(delta_list_raw) > 1 and not is_pit_lap:
                 delta_list_raw.append((  # set end value
                     round6(pos_last + 10),
@@ -231,7 +237,8 @@ def calc_data(
                 ))
                 delta_list_temp = tuple(delta_list_raw)
                 validating = api.read.timing.elapsed()
-            delta_list_raw = [DELTA_ZERO]  # reset
+            delta_list_raw.clear()  # reset
+            delta_list_raw.append(DELTA_ZERO)
             pos_last = pos_recorded = pos_curr
             used_last_raw = used_curr
             used_curr = 0
@@ -334,7 +341,6 @@ def calc_data(
         output.estimatedValidConsumption = used_est
         output.estimatedLaps = est_runlaps
         output.estimatedMinutes = est_runmins
-        output.estimatedEmptyCapacity = est_empty
         output.estimatedNumPitStopsEnd = est_pits_late
         output.estimatedNumPitStopsEarly = est_pits_early
         output.deltaConsumption = delta_fuel

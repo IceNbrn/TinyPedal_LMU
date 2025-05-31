@@ -6,21 +6,22 @@ Args:
 """
 
 import argparse
-import re
 import os
 import shutil
 import sys
 from glob import glob
+
 from py2exe import freeze
 
-from tinypedal.const import (
+from tinypedal.const_app import (
     APP_NAME,
-    VERSION,
-    PLATFORM,
     COPYRIGHT,
+    PLATFORM,
+    PSUTIL_VERSION,
+    PYSIDE_VERSION,
     PYTHON_VERSION,
     QT_VERSION,
-    PSUTIL_VERSION,
+    VERSION,
 )
 
 PYTHON_PATH = sys.exec_prefix
@@ -36,9 +37,8 @@ EXECUTABLE_SETTING = [
 
 EXCLUDE_MODULES = [
     "_ssl",
+    "ssl",
     "difflib",
-    # "email",
-    # "http",
     "pdb",
     "venv",
     "tkinter",
@@ -48,6 +48,8 @@ EXCLUDE_MODULES = [
     "unittest",
     "xmlrpc",
     "multiprocessing",
+    # "email",
+    # "http",
 ]
 
 IMAGE_FILES = [
@@ -95,7 +97,7 @@ BUILD_OPTIONS = {
 }
 
 BUILD_VERSION = {
-    "version": VERSION,
+    "version": VERSION.split("-")[0],  # strip off version tag
     "description": APP_NAME,
     "copyright": COPYRIGHT,
     "product_name": APP_NAME,
@@ -145,11 +147,11 @@ def check_old_build(clean_build: bool = False, build_ready: bool = False) -> boo
 
         is_remove = input(
             "INFO:Remove old build folder before building? Yes/No/Quit \n"
-        )
+        ).lower()
 
-        if re.match("y", is_remove, flags=re.IGNORECASE):
+        if "y" in is_remove:
             build_ready = delete_old_build()
-        elif re.match("q", is_remove, flags=re.IGNORECASE):
+        elif "q" in is_remove:
             build_ready = False
         else:
             build_ready = True
@@ -185,6 +187,7 @@ def build_start() -> None:
     print(f"INFO:TinyPedal: {VERSION}")
     print(f"INFO:Python: {PYTHON_VERSION}")
     print(f"INFO:Qt: {QT_VERSION}")
+    print(f"INFO:PySide: {PYSIDE_VERSION}")
     print(f"INFO:psutil: {PSUTIL_VERSION}")
     if PLATFORM == "Windows":
         cli_args = get_cli_argument()

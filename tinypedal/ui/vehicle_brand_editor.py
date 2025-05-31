@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,35 +20,33 @@
 Vehicle brand editor
 """
 
-import os
-import logging
 import json
-import time
+import logging
+import os
 import socket
+import time
 from urllib.request import urlopen
 
 from PySide2.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QDialogButtonBox,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QMessageBox,
     QFileDialog,
+    QHBoxLayout,
     QHeaderView,
     QMenu,
-    QAction,
+    QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
 )
 
 from ..api_control import api
-from ..setting import ConfigType, cfg, copy_setting
+from ..const_file import ConfigType, FileFilter
 from ..module_control import wctrl
-from ..file_constants import FileFilter
+from ..setting import cfg, copy_setting
 from ._common import (
     BaseEditor,
+    CompactButton,
     TableBatchReplace,
-    QSS_EDITOR_BUTTON,
+    UIScaler,
 )
 
 HEADER_BRANDS = "Vehicle name","Brand name"
@@ -62,7 +60,7 @@ class VehicleBrandEditor(BaseEditor):
     def __init__(self, parent):
         super().__init__(parent)
         self.set_utility_title("Vehicle Brand Editor")
-        self.setMinimumSize(600, 500)
+        self.setMinimumSize(UIScaler.size(45), UIScaler.size(38))
 
         self.brands_temp = copy_setting(cfg.user.brands)
 
@@ -83,6 +81,7 @@ class VehicleBrandEditor(BaseEditor):
         layout_main = QVBoxLayout()
         layout_main.addWidget(self.table_brands)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
 
     def set_layout_button(self):
@@ -90,52 +89,42 @@ class VehicleBrandEditor(BaseEditor):
         # Menu
         import_menu = QMenu(self)
 
-        import_rf2 = QAction("RF2 Rest API", self)
+        import_rf2 = import_menu.addAction("RF2 Rest API")
         import_rf2.triggered.connect(self.import_from_rf2)
-        import_menu.addAction(import_rf2)
 
-        import_lmu = QAction("LMU Rest API", self)
+        import_lmu = import_menu.addAction("LMU Rest API")
         import_lmu.triggered.connect(self.import_from_lmu)
-        import_menu.addAction(import_lmu)
 
-        import_json = QAction("JSON file", self)
+        import_json = import_menu.addAction("JSON file")
         import_json.triggered.connect(self.import_from_file)
-        import_menu.addAction(import_json)
 
         # Button
-        button_import = QPushButton("Import from")
-        button_import.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_import = CompactButton("Import from", has_menu=True)
         button_import.setMenu(import_menu)
 
-        button_add = QPushButton("Add")
+        button_add = CompactButton("Add")
         button_add.clicked.connect(self.add_brand)
-        button_add.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_sort = QPushButton("Sort")
+        button_sort = CompactButton("Sort")
         button_sort.clicked.connect(self.sort_brand)
-        button_sort.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_delete = QPushButton("Delete")
+        button_delete = CompactButton("Delete")
         button_delete.clicked.connect(self.delete_brand)
-        button_delete.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_replace = QPushButton("Replace")
+        button_replace = CompactButton("Replace")
         button_replace.clicked.connect(self.open_replace_dialog)
-        button_replace.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_reset = QDialogButtonBox(QDialogButtonBox.Reset)
+        button_reset = CompactButton("Reset")
         button_reset.clicked.connect(self.reset_setting)
-        button_reset.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_apply = QDialogButtonBox(QDialogButtonBox.Apply)
+        button_apply = CompactButton("Apply")
         button_apply.clicked.connect(self.applying)
-        button_apply.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_save = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Close)
-        button_save.accepted.connect(self.saving)
-        button_save.rejected.connect(self.close)
-        button_save.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_save = CompactButton("Save")
+        button_save.clicked.connect(self.saving)
+
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.close)
 
         # Set layout
         layout_button = QHBoxLayout()
@@ -148,6 +137,7 @@ class VehicleBrandEditor(BaseEditor):
         layout_button.addStretch(1)
         layout_button.addWidget(button_apply)
         layout_button.addWidget(button_save)
+        layout_button.addWidget(button_close)
         return layout_button
 
     def refresh_table(self):
@@ -292,7 +282,7 @@ class VehicleBrandEditor(BaseEditor):
     def reset_setting(self):
         """Reset setting"""
         msg_text = (
-            "Are you sure you want to reset brand preset to default?<br><br>"
+            "Reset <b>brands preset</b> to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
         if self.confirm_operation(message=msg_text):

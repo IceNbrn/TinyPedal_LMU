@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,11 +20,11 @@
 Gear Widget
 """
 
-from .. import calculation as calc
 from ..api_control import api
 from ..module_info import minfo
+from ..units import set_unit_speed
 from ._base import Overlay
-from ._painter import ProgressBar, GearGaugeBar, TextBar
+from ._painter import GearGaugeBar, ProgressBar, TextBar
 
 
 class Realtime(Overlay):
@@ -47,13 +47,26 @@ class Realtime(Overlay):
 
         (font_speed, font_offset, limiter_width, gauge_width, gauge_height, gear_size, speed_size
          ) = self.set_gauge_size(font)
+        font_rpm = self.config_font(
+            self.wcfg["font_name"],
+            self.wcfg["font_size_rpm"],
+            self.wcfg["font_weight_rpm"]
+        )
+        font_batt = self.config_font(
+            self.wcfg["font_name"],
+            self.wcfg["font_size_battery"],
+            self.wcfg["font_weight_battery"]
+        )
+
+        # Config units
+        self.unit_speed = set_unit_speed(self.cfg.units["speed_unit"])
 
         # Gear gauge
         self.gauge_color = (
-            self.wcfg["bkg_color"], # 0, -4 flicker
-            self.wcfg["rpm_color_safe"], # 1
-            self.wcfg["rpm_color_redline"], # 2
-            self.wcfg["rpm_color_over_rev"], # 3
+            self.wcfg["bkg_color"],  # 0, -4 flicker
+            self.wcfg["rpm_color_safe"],  # 1
+            self.wcfg["rpm_color_redline"],  # 2
+            self.wcfg["rpm_color_over_rev"],  # 3
         )
         self.bar_gauge = GearGaugeBar(
             self,
@@ -77,8 +90,15 @@ class Realtime(Overlay):
                 self,
                 width=gauge_width,
                 height=max(self.wcfg["rpm_bar_height"], 1),
+                offset_x=self.wcfg["rpm_reading_offset_x"],
+                offset_y=self.calc_font_offset(self.get_font_metrics(font_rpm)),
+                font=font_rpm,
                 input_color=self.wcfg["rpm_bar_color"],
+                fg_color=self.wcfg["font_color_rpm"],
                 bg_color=self.wcfg["rpm_bar_bkg_color"],
+                decimals=self.wcfg["rpm_decimal_places"],
+                show_reading=self.wcfg["show_rpm_reading"],
+                align=self.set_text_alignment(self.wcfg["rpm_reading_text_alignment"]),
                 right_side=self.wcfg["show_inverted_rpm"],
             )
             self.set_primary_orient(
@@ -96,8 +116,15 @@ class Realtime(Overlay):
                 self,
                 width=gauge_width,
                 height=max(self.wcfg["battery_bar_height"], 1),
+                offset_x=self.wcfg["battery_reading_offset_x"],
+                offset_y=self.calc_font_offset(self.get_font_metrics(font_batt)),
+                font=font_batt,
                 input_color=self.wcfg["battery_bar_color"],
+                fg_color=self.wcfg["font_color_battery"],
                 bg_color=self.wcfg["battery_bar_bkg_color"],
+                decimals=self.wcfg["battery_decimal_places"],
+                show_reading=self.wcfg["show_battery_reading"],
+                align=self.set_text_alignment(self.wcfg["battery_reading_text_alignment"]),
                 right_side=self.wcfg["show_inverted_battery"],
             )
             self.bar_battbar.state = None
@@ -132,6 +159,7 @@ class Realtime(Overlay):
         self.rpm_crit = 0
         self.rpm_range = 0
         self.rpm_max = 0
+        self.gear_max = 0
         self.last_gear = 0
 
     def timerEvent(self, event):
@@ -150,6 +178,7 @@ class Realtime(Overlay):
                 self.rpm_red = int(rpm_max * self.wcfg["rpm_multiplier_redline"])
                 self.rpm_crit = int(rpm_max * self.wcfg["rpm_multiplier_critical"])
                 self.rpm_range = rpm_max - self.rpm_safe
+                self.gear_max = api.read.engine.gear_max()
 
             # Shifting timer
             gear = api.read.engine.gear()
@@ -188,60 +217,49 @@ class Realtime(Overlay):
             color_index = self.color_rpm(rpm, gear, speed)
             target.update_input(
                 gear,
-                self.speed_units(speed),
+                self.unit_speed(speed),
                 color_index,
                 self.gauge_color[color_index],
             )
 
     def update_rpmbar(self, target, data):
         """RPM bar"""
-        rpm_offset = data - self.rpm_safe
-        if self.rpm_range > 0 <= rpm_offset:  # show only above offset
-            rpm_percent = rpm_offset / self.rpm_range
-        else:
-            rpm_percent = 0
-        if target.last != rpm_percent:
-            target.last = rpm_percent
-            target.update_input(rpm_percent)
+        if target.last != data:
+            target.last = data
+            rpm_offset = data - self.rpm_safe
+            if self.rpm_range > 0 <= rpm_offset:  # show only above offset
+                rpm_percent = rpm_offset / self.rpm_range
+            else:
+                rpm_percent = 0
+            target.update_input(rpm_percent, data)
 
     def update_battbar(self, target, data, state):
         """Battery bar"""
         available = state > 0  # available check only
         if target.state != available:
             target.state = available
-            if available:
-                target.show()
-            else:  # hide if electric motor unavailable
-                target.hide()
+            # Hide if electric motor unavailable
+            target.setHidden(not available)
         charge = state + data  # add state to finalize last change
         if target.last != charge:
             target.last = charge
             target.input_color = self.battbar_color[state == 3]
-            target.update_input(data * 0.01)
+            target.update_input(data * 0.01, data)
 
     def update_limiter(self, target, data):
         """Limiter"""
         if target.last != data:
             target.last = data
-            if data:
-                target.show()
-            else:
-                target.hide()
+            target.setHidden(not data)
 
     # Additional methods
-    def speed_units(self, value):
-        """Speed units"""
-        if self.cfg.units["speed_unit"] == "KPH":
-            return calc.mps2kph(value)
-        if self.cfg.units["speed_unit"] == "MPH":
-            return calc.mps2mph(value)
-        return value
-
     def color_rpm(self, rpm, gear, speed):
         """RPM indicator color"""
         self.flicker = not self.flicker
-        if (self.wcfg["show_rpm_flickering_above_critical"] and self.flicker and
-            gear < api.read.engine.gear_max() and rpm >= self.rpm_crit):
+        if (self.wcfg["show_rpm_flickering_above_critical"] and
+            self.flicker and
+            gear < self.gear_max and
+            rpm >= self.rpm_crit):
             return -4
         if (not gear and
             speed > self.wcfg["neutral_warning_speed_threshold"] and
@@ -258,17 +276,15 @@ class Realtime(Overlay):
         """Set gauge size"""
         font_m = self.get_font_metrics(font)
         font_offset = self.calc_font_offset(font_m)
-
-        font_speed = self.config_font(
-            self.wcfg["font_name"],
-            self.wcfg["font_size"],
-            self.wcfg["font_weight_speed"]
-        )
         if self.wcfg["show_speed_below_gear"]:
             font_scale_speed = self.wcfg["font_scale_speed"]
         else:
             font_scale_speed = 1
-        font_speed.setPixelSize(round(self.wcfg["font_size"] * font_scale_speed))
+        font_speed = self.config_font(
+            self.wcfg["font_name"],
+            round(self.wcfg["font_size"] * font_scale_speed),
+            self.wcfg["font_weight_speed"]
+        )
 
         # Config variable
         inner_gap = self.wcfg["inner_gap"]

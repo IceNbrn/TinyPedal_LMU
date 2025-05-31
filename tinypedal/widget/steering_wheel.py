@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,13 +20,13 @@
 Steering wheel Widget
 """
 
-from PySide2.QtCore import Qt, QRect
-from PySide2.QtGui import QPainter, QPixmap, QPen, QBrush
+from PySide2.QtCore import QRect, Qt
+from PySide2.QtGui import QBrush, QPainter, QPen, QPixmap
 
 from ..api_control import api
-from ..file_constants import ImageFile
+from ..const_file import ImageFile
 from ..module_info import minfo
-from .. import validator as val
+from ..validator import image_exists
 from ._base import Overlay
 
 
@@ -160,7 +160,7 @@ class Realtime(Overlay):
         """Load steering wheel image"""
         if show_custom:
             temp_filename = userfile
-            if val.image_file(temp_filename):
+            if image_exists(temp_filename):
                 filename = temp_filename
         icon_source = QPixmap(filename)
         return icon_source.scaled(size, size, mode=Qt.SmoothTransformation)

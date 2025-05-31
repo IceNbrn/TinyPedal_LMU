@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,47 +22,53 @@ Wheels module
 
 from collections import deque
 
-from ._base import DataModule
-from ..module_info import minfo
-from ..api_control import api
 from .. import calculation as calc
+from ..api_control import api
+from ..const_common import POS_XY_ZERO
+from ..module_info import minfo
+from ._base import DataModule
 
 
 class Realtime(DataModule):
     """Wheels data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
         output = minfo.wheels
 
+        vehicle_name = ""
+        radius_front = 0.0
+        radius_rear = 0.0
         list_radius_f = deque([], 160)
         list_radius_r = deque([], 160)
+
         max_rot_bias_f = max(self.mcfg["maximum_rotation_difference_front"], 0.00001)
         max_rot_bias_r = max(self.mcfg["maximum_rotation_difference_rear"], 0.00001)
         min_rot_axle = max(self.mcfg["minimum_axle_rotation"], 0)
         min_coords = min(max(self.mcfg["cornering_radius_sampling_interval"], 5), 100)
         list_coords = deque([(0,0)] * min_coords * 2, min_coords * 2)
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:
                     reset = True
                     update_interval = self.active_interval
 
-                    if output.vehicleName == api.read.check.vehicle_id():
-                        radius_front = output.radiusFront
-                        radius_rear = output.radiusRear
+                    if vehicle_name == api.read.vehicle.vehicle_name():
                         min_samples_f = 160
                         min_samples_r = 160
                     else:
-                        output.vehicleName = api.read.check.vehicle_id()
+                        vehicle_name = api.read.vehicle.vehicle_name()
                         list_radius_f.clear()
                         list_radius_r.clear()
                         radius_front = 0.0
@@ -74,8 +80,8 @@ class Realtime(DataModule):
                     samples_slice_r = sample_slice_indices(min_samples_r)
                     locking_f = 1
                     locking_r = 1
-                    gps_last = 0
                     cornering_radius = 0
+                    gps_last = POS_XY_ZERO
 
                 # Read telemetry
                 speed = api.read.vehicle.speed()
@@ -122,8 +128,6 @@ class Realtime(DataModule):
                     cornering_radius = calc.distance(list_coords[0], arc_center_pos)
 
                 # Output wheels data
-                output.radiusFront = radius_front
-                output.radiusRear = radius_rear
                 output.lockingPercentFront = locking_f
                 output.lockingPercentRear = locking_r
                 output.corneringRadius = cornering_radius

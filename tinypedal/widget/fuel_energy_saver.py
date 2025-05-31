@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -23,12 +23,11 @@ Fuel energy saver Widget
 from math import floor
 
 from .. import calculation as calc
-from ..regex_pattern import TEXT_PLACEHOLDER, ENERGY_TYPE_ID
 from ..api_control import api
+from ..const_common import ENERGY_TYPE_ID, MAX_SECONDS, TEXT_PLACEHOLDER
 from ..module_info import minfo
+from ..units import set_unit_fuel
 from ._base import Overlay
-
-MAGIC_NUM = 99999
 
 
 class Realtime(Overlay):
@@ -55,6 +54,9 @@ class Realtime(Overlay):
         self.decimals_delta = max(self.wcfg["decimal_places_delta"], 0)
         self.min_reserve = max(self.wcfg["minimum_reserve"], 0)
 
+        # Config units
+        self.unit_fuel = set_unit_fuel(self.cfg.units["fuel_unit"])
+
         # Base style
         self.setStyleSheet(self.set_qss(
             font_family=self.wcfg["font_name"],
@@ -78,7 +80,7 @@ class Realtime(Overlay):
             style=bar_style_lap[0],
             width=bar_width,
             count=self.total_slot,
-            last=-MAGIC_NUM,
+            last=-MAX_SECONDS,
         )
         self.bars_target_lap[0].setText("LAST")
         self.bars_target_lap[self.center_slot].setStyleSheet(bar_style_lap[1])
@@ -98,7 +100,7 @@ class Realtime(Overlay):
             text=TEXT_PLACEHOLDER,
             style=bar_style_target_use,
             width=bar_width,
-            last=-MAGIC_NUM,
+            last=-MAX_SECONDS,
             count=self.total_slot,
         )
         self.set_grid_layout_table_row(
@@ -125,7 +127,7 @@ class Realtime(Overlay):
             style=self.delta_color[2],
             width=bar_width,
             count=self.total_slot,
-            last=-MAGIC_NUM,
+            last=-MAX_SECONDS,
         )
         self.set_grid_layout_table_row(
             layout=layout,
@@ -211,7 +213,7 @@ class Realtime(Overlay):
             if total_laps_target > 0 and fuel_est > 0:
                 target_use = total_fuel_remaining / total_laps_target
             else:
-                target_use = -MAGIC_NUM
+                target_use = -MAX_SECONDS
             self.update_target_use(
                 self.bars_target_use[index], target_use, energy_type)
 
@@ -219,7 +221,7 @@ class Realtime(Overlay):
             if total_laps_target > 0 and fuel_est > 0:
                 delta = fuel_est - target_use
             else:
-                delta = -MAGIC_NUM
+                delta = -MAX_SECONDS
             self.update_delta(self.bars_delta[index], delta, energy_type)
 
     # GUI update methods
@@ -227,9 +229,9 @@ class Realtime(Overlay):
         """Target consumption"""
         if target.last != data:
             target.last = data
-            if data > -MAGIC_NUM:
+            if data > -MAX_SECONDS:
                 if not energy_type:
-                    data = self.fuel_units(data)
+                    data = self.unit_fuel(data)
                 use_text = f"{data:.{self.decimals_consumption}f}"[:self.char_width]
             else:
                 use_text = TEXT_PLACEHOLDER
@@ -239,9 +241,9 @@ class Realtime(Overlay):
         """Delta consumption between target & current"""
         if target.last != data:
             target.last = data
-            if data > -MAGIC_NUM:
+            if data > -MAX_SECONDS:
                 if not energy_type:
-                    data = self.fuel_units(data)
+                    data = self.unit_fuel(data)
                 delta_text = f"{data:+.{self.decimals_delta}f}"[:self.char_width]
                 style = self.delta_color[data >= 0]
             else:
@@ -261,10 +263,3 @@ class Realtime(Overlay):
         if target.last != data:
             target.last = data
             target.setText(ENERGY_TYPE_ID[data > 0])
-
-    # Additional methods
-    def fuel_units(self, fuel):
-        """2 different fuel unit conversion, default is Liter"""
-        if self.cfg.units["fuel_unit"] == "Gallon":
-            return calc.liter2gallon(fuel)
-        return fuel

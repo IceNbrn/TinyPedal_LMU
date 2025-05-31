@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,59 +21,56 @@ Fuel calculator
 """
 
 from __future__ import annotations
+
 import os
-from math import ceil, floor
 from collections import deque
+from math import ceil, floor
 
 from PySide2.QtCore import Qt
-from PySide2.QtGui import QColor, QPalette
+from PySide2.QtGui import QColor
 from PySide2.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
     QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
     QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
-    QDoubleSpinBox,
-    QLineEdit,
-    QFrame,
+    QStatusBar,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QMessageBox,
-    QFileDialog,
-    QStatusBar,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ..api_control import api
-from ..setting import cfg
-from ..module_info import minfo, ConsumptionDataSet
 from .. import calculation as calc
-from .. import formatter as fmt
-from ..file_constants import FileFilter
+from ..api_control import api
+from ..const_file import FileFilter
+from ..formatter import laptime_string_to_seconds
+from ..module_info import ConsumptionDataSet, minfo
+from ..setting import cfg
+from ..units import set_symbol_fuel, set_unit_fuel
 from ..userfile.fuel_delta import load_consumption_history_file
-from ._common import BaseDialog
-
-READ_ONLY_COLOR = QPalette().window().color().name(QColor.HexRgb)
-INVALID_COLOR = "#F40"
+from ._common import BaseDialog, UIScaler
 
 
 def set_grid_layout(spacing: int = 2, margin: int = 5):
     """Set grid layout"""
+    spacing = UIScaler.pixel(spacing)
+    margin = UIScaler.pixel(margin)
     layout = QGridLayout()
     layout.setSpacing(spacing)
     layout.setContentsMargins(margin, margin, margin, margin)
     return layout
 
 
-def set_read_only_style(line_edit, invalid=False):
-    """Set read only style"""
-    if invalid:
-        color = INVALID_COLOR
-    else:
-        color = READ_ONLY_COLOR
-    line_edit.setStyleSheet(f"background:{color};")
+def highlight_invalid(line_edit: QLineEdit, invalid=False):
+    """Highlight invalid"""
+    line_edit.setStyleSheet("background: #F40;" if invalid else "")
 
 
 class FuelCalculator(BaseDialog):
@@ -85,10 +82,11 @@ class FuelCalculator(BaseDialog):
 
         # Set (freeze) fuel unit
         self.is_gallon = cfg.units["fuel_unit"] == "Gallon"
+        self.unit_fuel = set_unit_fuel(cfg.units["fuel_unit"])
+        self.symbol_fuel = set_symbol_fuel(cfg.units["fuel_unit"])
 
         # Set status bar
         self.status_bar = QStatusBar(self)
-        self.status_bar.setStyleSheet("font-weight:bold;")
 
         # Set view
         self.panel_calculator = QWidget(self)
@@ -106,23 +104,11 @@ class FuelCalculator(BaseDialog):
         layout_panel.addWidget(self.panel_calculator)
         layout_panel.addWidget(self.panel_table)
         layout_main = QVBoxLayout()
-        layout_main.setContentsMargins(5,5,5,0)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, 0)
         layout_main.addLayout(layout_panel, stretch=1)
         layout_main.addWidget(self.status_bar)
         self.setLayout(layout_main)
         self.setFixedWidth(self.sizeHint().width())
-
-    def fuel_units(self, fuel: float):
-        """2 different fuel unit conversion, default is Liter"""
-        if self.is_gallon:
-            return calc.liter2gallon(fuel)
-        return fuel
-
-    def fuel_unit_text(self):
-        """Set fuel unit text"""
-        if self.is_gallon:
-            return "gal"
-        return "L"
 
     def toggle_history_panel(self):
         """Toggle history data panel"""
@@ -143,7 +129,7 @@ class FuelCalculator(BaseDialog):
             QMessageBox.warning(
                 self, "Error",
                 "No data selected.")
-            return None
+            return
 
         data_laptime = [data for data in selected_data if data.column() == 1]
         data_fuel = [data for data in selected_data if data.column() == 2]
@@ -152,7 +138,7 @@ class FuelCalculator(BaseDialog):
 
         # Send data to calculator
         if data_laptime:
-            dataset = [fmt.laptime_string_to_seconds(data.text()) for data in data_laptime]
+            dataset = [laptime_string_to_seconds(data.text()) for data in data_laptime]
             output_value = calc.mean(dataset) if len(data_laptime) > 1 else dataset[0]
             self.input_laptime.minutes.setValue(output_value // 60)
             self.input_laptime.seconds.setValue(output_value % 60)
@@ -168,7 +154,6 @@ class FuelCalculator(BaseDialog):
         if data_capacity:
             output_value = float(data_capacity[0].text())
             self.input_fuel.capacity.setValue(output_value)
-        return None
 
     def load_file(self):
         """Load history data from file"""
@@ -208,35 +193,34 @@ class FuelCalculator(BaseDialog):
         # Load tank capacity
         capacity = max(api.read.vehicle.tank_capacity(), latest_history.capacityFuel)
         if capacity:
-            self.input_fuel.capacity.setValue(self.fuel_units(capacity))
+            self.input_fuel.capacity.setValue(self.unit_fuel(capacity))
         # Load consumption from last valid lap
         if latest_history.isValidLap:
             fuel_used = latest_history.lastLapUsedFuel
-            self.input_fuel.fuel_used.setValue(self.fuel_units(fuel_used))
+            self.input_fuel.fuel_used.setValue(self.unit_fuel(fuel_used))
             energy_used = latest_history.lastLapUsedEnergy
             self.input_fuel.energy_used.setValue(energy_used)
 
     def refresh_table(self, dataset: deque[ConsumptionDataSet]):
         """Refresh history data table"""
-        self.table_history.clearContents()
-        self.table_history.setRowCount(len(dataset))
-        row_index = 0
-        invalid_color = QColor(INVALID_COLOR)
+        self.table_history.setRowCount(0)
+        invalid_color = QColor("#F40")
 
-        for lap_data in dataset:
+        for row_index, lap_data in enumerate(dataset):
             lapnumber = self.__add_table_item(f"{lap_data.lapNumber}", 0)
             laptime = self.__add_table_item(calc.sec2laptime_full(lap_data.lapTimeLast), 33)
-            used_fuel = self.__add_table_item(f"{self.fuel_units(lap_data.lastLapUsedFuel):.3f}", 33)
+            used_fuel = self.__add_table_item(f"{self.unit_fuel(lap_data.lastLapUsedFuel):.3f}", 33)
             used_energy = self.__add_table_item(f"{lap_data.lastLapUsedEnergy:.3f}", 33)
             battery_drain = self.__add_table_item(f"{lap_data.batteryDrainLast:.3f}", 0)
             battery_regen = self.__add_table_item(f"{lap_data.batteryRegenLast:.3f}", 0)
-            capacity_fuel = self.__add_table_item(f"{self.fuel_units(lap_data.capacityFuel):.3f}", 33)
+            capacity_fuel = self.__add_table_item(f"{self.unit_fuel(lap_data.capacityFuel):.3f}", 33)
 
             if not lap_data.isValidLap:  # set invalid lap text color
                 laptime.setForeground(invalid_color)
                 used_fuel.setForeground(invalid_color)
                 used_energy.setForeground(invalid_color)
 
+            self.table_history.insertRow(row_index)
             self.table_history.setItem(row_index, 0, lapnumber)
             self.table_history.setItem(row_index, 1, laptime)
             self.table_history.setItem(row_index, 2, used_fuel)
@@ -244,7 +228,6 @@ class FuelCalculator(BaseDialog):
             self.table_history.setItem(row_index, 4, battery_drain)
             self.table_history.setItem(row_index, 5, battery_regen)
             self.table_history.setItem(row_index, 6, capacity_fuel)
-            row_index += 1
 
     def __add_table_item(self, text: str, flags: int):
         """Add table item"""
@@ -256,19 +239,14 @@ class FuelCalculator(BaseDialog):
 
     def set_panel_calculator(self, panel):
         """Set panel calculator"""
-        panel_left_width = 330
-
         frame_laptime = QFrame(self)
         frame_laptime.setFrameShape(QFrame.StyledPanel)
-        frame_laptime.setFixedWidth(panel_left_width)
 
         frame_fuel = QFrame(self)
         frame_fuel.setFrameShape(QFrame.StyledPanel)
-        frame_fuel.setFixedWidth(panel_left_width)
 
         frame_race = QFrame(self)
         frame_race.setFrameShape(QFrame.StyledPanel)
-        frame_race.setFixedWidth(panel_left_width)
 
         frame_output_fuel = QFrame(self)
         frame_output_fuel.setFrameShape(QFrame.StyledPanel)
@@ -322,11 +300,11 @@ class FuelCalculator(BaseDialog):
         layout_button = QHBoxLayout()
         layout_button.addWidget(button_loadlive, stretch=1)
         layout_button.addWidget(button_loadfile, stretch=1)
-        layout_button.addStretch(stretch=1)
+        layout_button.addStretch(1)
         layout_button.addWidget(self.button_toggle, stretch=2)
 
         layout_panel = QVBoxLayout()
-        layout_panel.setContentsMargins(0,0,0,0)
+        layout_panel.setContentsMargins(0, 0, 0, 0)
         layout_panel.addLayout(layout_calculator)
         layout_panel.addLayout(layout_button)
         panel.setLayout(layout_panel)
@@ -337,18 +315,17 @@ class FuelCalculator(BaseDialog):
         self.table_history.setColumnCount(7)
         self.table_history.verticalHeader().setVisible(False)
         self.table_history.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        font_w = self.fontMetrics().averageCharWidth()
         self.table_history.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-        self.table_history.setColumnWidth(0, font_w * 7)
-        self.table_history.setFixedWidth(460)
+        self.table_history.setColumnWidth(0, UIScaler.size(3))
+        self.table_history.setFixedWidth(UIScaler.size(35))
         self.table_history.setHorizontalHeaderLabels((
             "Lap",
             "Time",
-            f"Fuel({self.fuel_unit_text()})",
+            f"Fuel({self.symbol_fuel})",
             "Energy(%)",
             "Drain(%)",
             "Regen(%)",
-            f"Tank({self.fuel_unit_text()})",
+            f"Tank({self.symbol_fuel})",
         ))
 
         button_adddata = QPushButton("Add Selected Data")
@@ -356,7 +333,7 @@ class FuelCalculator(BaseDialog):
         button_adddata.setFocusPolicy(Qt.NoFocus)
 
         layout_panel = QVBoxLayout()
-        layout_panel.setContentsMargins(0,0,0,0)
+        layout_panel.setContentsMargins(0, 0, 0, 0)
         layout_panel.addWidget(self.table_history)
         layout_panel.addWidget(button_adddata)
         panel.setLayout(layout_panel)
@@ -483,8 +460,7 @@ class FuelCalculator(BaseDialog):
         output_refill.average_refill.setText(
             f"{average_refuel:.3f}")
         # Set warning color if exceeded tank capacity
-        set_read_only_style(
-            output_refill.average_refill, average_refuel > tank_capacity)
+        highlight_invalid(output_refill.average_refill, average_refuel > tank_capacity)
 
     def validate_starting_fuel(self):
         """Validate starting fuel"""
@@ -577,7 +553,6 @@ class InputFuel():
         self.fuel_ratio = QLineEdit("0.000")
         self.fuel_ratio.setAlignment(Qt.AlignRight)
         self.fuel_ratio.setReadOnly(True)
-        set_read_only_style(self.fuel_ratio)
 
         self.fuel_used = QDoubleSpinBox()
         self.fuel_used.setRange(0, 9999)
@@ -600,14 +575,14 @@ class InputFuel():
 
         layout.addWidget(QLabel("Tank Capacity:"), 0, 0, 1, 2)
         layout.addWidget(self.capacity, 1, 0)
-        layout.addWidget(QLabel(parent.fuel_unit_text()), 1, 1)
+        layout.addWidget(QLabel(parent.symbol_fuel), 1, 1)
 
         layout.addWidget(QLabel("Fuel Ratio:"), 2, 0, 1, 2)
         layout.addWidget(self.fuel_ratio, 3, 0)
 
         layout.addWidget(QLabel("Fuel Consumption:"), 0, 2, 1, 2)
         layout.addWidget(self.fuel_used, 1, 2)
-        layout.addWidget(QLabel(parent.fuel_unit_text()), 1, 3)
+        layout.addWidget(QLabel(parent.symbol_fuel), 1, 3)
 
         layout.addWidget(QLabel("Energy Consumption:"), 2, 2, 1, 2)
         layout.addWidget(self.energy_used, 3, 2)
@@ -694,39 +669,33 @@ class OutputUsage():
     def __init__(self, parent, frame, type_name) -> None:
         """Set output display"""
         if type_name == "Fuel":
-            unit_text = parent.fuel_unit_text()
+            unit_text = parent.symbol_fuel
         else:
             unit_text = "%"
 
         self.total_needed = QLineEdit("0.000 ≈ 0")
         self.total_needed.setAlignment(Qt.AlignRight)
         self.total_needed.setReadOnly(True)
-        set_read_only_style(self.total_needed)
 
         self.pit_stops = QLineEdit("0.000 ≈ 0")
         self.pit_stops.setAlignment(Qt.AlignRight)
         self.pit_stops.setReadOnly(True)
-        set_read_only_style(self.pit_stops)
 
         self.total_laps = QLineEdit("0.000")
         self.total_laps.setAlignment(Qt.AlignRight)
         self.total_laps.setReadOnly(True)
-        set_read_only_style(self.total_laps)
 
         self.total_minutes = QLineEdit("0.000")
         self.total_minutes.setAlignment(Qt.AlignRight)
         self.total_minutes.setReadOnly(True)
-        set_read_only_style(self.total_minutes)
 
         self.end_stint = QLineEdit("0.000")
         self.end_stint.setAlignment(Qt.AlignRight)
         self.end_stint.setReadOnly(True)
-        set_read_only_style(self.end_stint)
 
         self.one_less_stint = QLineEdit("0.000")
         self.one_less_stint.setAlignment(Qt.AlignRight)
         self.one_less_stint.setReadOnly(True)
-        set_read_only_style(self.one_less_stint)
 
         layout = set_grid_layout()
 
@@ -768,7 +737,7 @@ class OutputRefill():
 
         if type_name == "Fuel":
             start_range = 9999
-            unit_text = parent.fuel_unit_text()
+            unit_text = parent.symbol_fuel
             self.amount_start.valueChanged.connect(parent.validate_starting_fuel)
         else:
             start_range = 100
@@ -779,7 +748,6 @@ class OutputRefill():
         self.average_refill = QLineEdit("0.000")
         self.average_refill.setAlignment(Qt.AlignRight)
         self.average_refill.setReadOnly(True)
-        set_read_only_style(self.average_refill)
 
         layout = set_grid_layout()
 

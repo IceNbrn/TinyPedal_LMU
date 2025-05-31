@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -23,39 +23,41 @@ Common
 import os
 import re
 from collections import deque
-from collections.abc import Callable
+from typing import Callable
 
-from PySide2.QtCore import Qt, QRegularExpression, QLocale
+from PySide2.QtCore import QLocale, QRegularExpression, Qt
 from PySide2.QtGui import (
     QColor,
-    QRegularExpressionValidator,
-    QIntValidator,
     QDoubleValidator,
+    QIntValidator,
+    QRegularExpressionValidator,
     qGray,
 )
 from PySide2.QtWidgets import (
-    QLabel,
-    QDialog,
-    QMessageBox,
-    QFileDialog,
-    QLineEdit,
-    QColorDialog,
-    QDoubleSpinBox,
-    QDialogButtonBox,
-    QHBoxLayout,
-    QVBoxLayout,
-    QTableWidget,
-    QTableWidgetItem,
-    QPushButton,
-    QGridLayout,
+    QApplication,
     QCheckBox,
+    QColorDialog,
     QComboBox,
     QCompleter,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
 )
 
-from .. import validator as val
-from ..const import APP_NAME
-from ..file_constants import FileFilter
+from .. import set_relative_path
+from ..const_app import APP_NAME
+from ..const_file import FileFilter
+from ..validator import image_exists, is_hex_color, is_string_number
 
 # Validator
 QLOC_NUMBER = QLocale(QLocale.C)
@@ -68,15 +70,6 @@ QVAL_COLOR = QRegularExpressionValidator(QRegularExpression('^#[0-9a-fA-F]*'))
 QVAL_HEATMAP = QRegularExpressionValidator(QRegularExpression('[0-9a-zA-Z_]*'))
 QVAL_FILENAME = QRegularExpressionValidator(QRegularExpression('[^\\\\/:*?"<>|]*'))
 
-# QStyleSheet
-QSS_EDITOR_BUTTON = "padding: 3px 7px;"
-QSS_EDITOR_LISTBOX = (
-    "QListView {outline: none;}"
-    "QListView::item {height: 32px;border-radius: 0;}"
-    "QListView::item:selected {background: transparent;}"
-    "QListView::item:hover {background: transparent;}"
-)
-
 # Misc
 color_pick_history = deque(
     ["#FFF"] * QColorDialog.customCount(),
@@ -84,9 +77,48 @@ color_pick_history = deque(
 )
 
 
+class UIScaler:
+    """UI font & size scaler"""
+    # Global base font size in point (not counting dpi scale)
+    FONT_BASE_POINT = QApplication.font().pointSize()
+    # Global base font size in pixel (dpi scaled)
+    # dpi scale = font dpi / 96
+    # px = (pt * dpi scale) * 96 / 72
+    # px = pt * font dpi / 72
+    FONT_DPI_SCALE = QApplication.fontMetrics().fontDpi() / 96
+    FONT_BASE_PIXEL_SCALED = QApplication.font().pointSize() * QApplication.fontMetrics().fontDpi() / 72
+
+    @staticmethod
+    def font(scale: float) -> float:
+        """Scale UI font size (points) by base font size (not counting dpi scale)"""
+        return UIScaler.FONT_BASE_POINT * scale
+
+    @staticmethod
+    def size(scale: float) -> int:
+        """Scale UI size (pixels) by base font size (scaled with dpi)"""
+        return round(UIScaler.FONT_BASE_PIXEL_SCALED * scale)
+
+    @staticmethod
+    def pixel(pixel: int):
+        """Scale pixel size by base font DPI scale"""
+        return round(UIScaler.FONT_DPI_SCALE * pixel)
+
+
+class CompactButton(QPushButton):
+    """Compact button style"""
+
+    def __init__(self, text, parent=None, has_menu=False):
+        super().__init__(text, parent)
+        self.setFixedWidth(
+            self.fontMetrics().boundingRect(text).width()
+            + UIScaler.FONT_BASE_PIXEL_SCALED * (1 + has_menu)
+        )
+
+
 # Class
 class BaseDialog(QDialog):
     """Base dialog class"""
+    MARGIN = UIScaler.pixel(6)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -245,7 +277,7 @@ class BatchOffset(BaseDialog):
         layout_main.addWidget(self.checkbox_scale)
         layout_main.addLayout(layout_button)
         self.setLayout(layout_main)
-        self.setFixedSize(150, self.sizeHint().height())
+        self.setFixedSize(UIScaler.size(12), self.sizeHint().height())
 
     def toggle_mode(self, checked: bool):
         """Toggle mode"""
@@ -328,7 +360,7 @@ class TableBatchReplace(BaseDialog):
         layout_main.addLayout(layout_option)
         layout_main.addLayout(layout_button)
         self.setLayout(layout_main)
-        self.setMinimumWidth(300)
+        self.setMinimumWidth(UIScaler.size(22))
         self.setFixedHeight(self.sizeHint().height())
 
     def update_selector(self, column_index: int, last_search: str = ""):
@@ -421,7 +453,7 @@ class DoubleClickEdit(QLineEdit):
         path_selected = QFileDialog.getExistingDirectory(self, dir=self.init_value)
         if os.path.exists(path_selected):
             # Convert to relative path if in APP root folder
-            path_valid = val.relative_path(path_selected)
+            path_valid = set_relative_path(path_selected)
             # Update edit box and init value
             self.setText(path_valid)
             self.init_value = path_valid
@@ -429,14 +461,14 @@ class DoubleClickEdit(QLineEdit):
     def open_dialog_image(self):
         """Open image file name dialog"""
         path_selected = QFileDialog.getOpenFileName(self, dir=self.init_value, filter=FileFilter.PNG)[0]
-        if val.image_file(path_selected):
+        if image_exists(path_selected):
             self.setText(path_selected)
             self.init_value = path_selected
 
     def preview_color(self):
         """Update edit preview color"""
         color_str = self.text()
-        if val.hex_color(color_str):
+        if is_hex_color(color_str):
             # Set foreground color based on background color lightness
             qcolor = QColor(color_str)
             if qcolor.alpha() > 128 > qGray(qcolor.rgb()):
@@ -444,13 +476,11 @@ class DoubleClickEdit(QLineEdit):
             else:
                 fg_color = "#000"
             # Apply style
-            self.setStyleSheet(
-                f"QLineEdit {{color:{fg_color};background:{color_str};}}"
-            )
+            self.setStyleSheet(f"QLineEdit {{color:{fg_color};background:{color_str};}}")
 
 
-class QTableFloatItem(QTableWidgetItem):
-    """QTable float type item"""
+class FloatTableItem(QTableWidgetItem):
+    """QTable item - float type with validation"""
 
     def __init__(self, value: float):
         """Convert & set float value to string"""
@@ -470,7 +500,7 @@ class QTableFloatItem(QTableWidgetItem):
     def validate(self):
         """Validate value, replace invalid value with old value if invalid"""
         value = self.text()
-        if val.string_number(value):
+        if is_string_number(value):
             self._value = float(value)
         else:
             self.setText(str(self._value))
@@ -480,8 +510,8 @@ class QTableFloatItem(QTableWidgetItem):
         return self.value() < other.value()
 
 
-class QTableNumTextItem(QTableWidgetItem):
-    """QTable numeric sortable text type item"""
+class NumericTableItem(QTableWidgetItem):
+    """QTable item - sortable numeric text"""
 
     def __init__(self, value: float, text: str):
         """Set numeric value & string text"""

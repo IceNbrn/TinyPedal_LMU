@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -23,12 +23,16 @@ Relative finish order Widget
 from math import ceil
 
 from .. import calculation as calc
-from ..regex_pattern import TEXT_PLACEHOLDER, ENERGY_TYPE_ID, RACELENGTH_TYPE_ID
 from ..api_control import api
+from ..const_common import (
+    ENERGY_TYPE_ID,
+    MAX_SECONDS,
+    RACELENGTH_TYPE_ID,
+    TEXT_PLACEHOLDER,
+)
 from ..module_info import minfo
+from ..units import set_unit_fuel
 from ._base import Overlay
-
-MAGIC_NUM = 99999
 
 
 class Realtime(Overlay):
@@ -52,12 +56,15 @@ class Realtime(Overlay):
         self.range_start = max(self.wcfg["near_start_range"], 0)
         self.range_finish = max(self.wcfg["near_finish_range"], 0)
         self.total_slot = min(max(self.wcfg["number_of_predication"], 0), 10) + 3
-        self.leader_pit_time_set = self.create_pit_time_set(self.total_slot, "leader")
-        self.player_pit_time_set = self.create_pit_time_set(self.total_slot, "player")
+        self.leader_pit_time_set = list(self.create_pit_time_set(self.total_slot, "leader"))
+        self.player_pit_time_set = list(self.create_pit_time_set(self.total_slot, "player"))
         self.decimals_laps = max(self.wcfg["decimal_places_laps"], 0)
         self.decimals_refill = max(self.wcfg["decimal_places_refill"], 0)
         self.extra_laps = max(self.wcfg["number_of_extra_laps"], 1)
         self.refill_sign = "" if self.wcfg["show_absolute_refilling"] else "+"
+
+        # Config units
+        self.unit_fuel = set_unit_fuel(self.cfg.units["fuel_unit"])
 
         self.gen_leader_pace = calc_laptime_pace(
             min(max(self.wcfg["leader_laptime_pace_samples"], 1), 20),
@@ -193,7 +200,7 @@ class Realtime(Overlay):
             )
 
         # Last data
-        self.relative_lap_offset = -MAGIC_NUM
+        self.relative_lap_offset = -MAX_SECONDS
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
@@ -214,8 +221,8 @@ class Realtime(Overlay):
         leader_laptime_pace = self.gen_leader_pace.send(leader_index)
         player_laptime_pace = minfo.delta.lapTimePace
 
-        leader_valid = 0 < leader_laptime_pace < MAGIC_NUM
-        player_valid = 0 < player_laptime_pace < MAGIC_NUM
+        leader_valid = 0 < leader_laptime_pace < MAX_SECONDS
+        player_valid = 0 < player_laptime_pace < MAX_SECONDS
 
         if is_lap_type_session and leader_valid and player_valid:
             laps_total = api.read.lap.maximum()
@@ -253,7 +260,7 @@ class Realtime(Overlay):
 
             # Predicate player
             if not player_valid:
-                lap_final, player_hi_range, full_laps_left = -MAGIC_NUM, 0, 0
+                lap_final, player_hi_range, full_laps_left = -MAX_SECONDS, 0, 0
             elif is_lap_type_session and index > 1:
                 lap_final = calc.lap_progress_offset(  # relative lap offset based on 0s column
                     player_laptime_pace, self.relative_lap_offset, self.player_pit_time_set[index])
@@ -275,7 +282,7 @@ class Realtime(Overlay):
             # Player refill
             if (is_lap_type_session and index != 1
                 or in_formation or not leader_valid or not player_valid):
-                refill_player = -MAGIC_NUM
+                refill_player = -MAX_SECONDS
             else:
                 refill_player = calc.total_fuel_needed(
                     full_laps_left,
@@ -286,8 +293,8 @@ class Realtime(Overlay):
 
             # Player refill extra
             if self.wcfg["show_extra_refilling"]:
-                if refill_player == -MAGIC_NUM:
-                    refill_extra = -MAGIC_NUM
+                if refill_player == -MAX_SECONDS:
+                    refill_extra = -MAX_SECONDS
                 else:
                     refill_extra = calc.total_fuel_needed(
                         full_laps_left + self.extra_laps,  # add extra laps
@@ -298,7 +305,7 @@ class Realtime(Overlay):
 
             # Predicate leader
             if not leader_valid or player_index == leader_index:
-                leader_lap_final, leader_hi_range = -MAGIC_NUM, 0
+                leader_lap_final, leader_hi_range = -MAX_SECONDS, 0
             elif is_lap_type_session:
                 # Lap-type final lap progress + lap difference from leader
                 # Round up laps difference for relative final lap progress against player
@@ -322,7 +329,7 @@ class Realtime(Overlay):
         """Leader final lap progress"""
         if target.last != data:
             target.last = data
-            if data > -MAGIC_NUM:
+            if data > -MAX_SECONDS:
                 lap_text = f"{data:.{self.decimals_laps}f}"[:self.char_width]
             else:
                 lap_text = TEXT_PLACEHOLDER
@@ -333,7 +340,7 @@ class Realtime(Overlay):
         """Player final lap progress"""
         if target.last != data:
             target.last = data
-            if data > -MAGIC_NUM:
+            if data > -MAX_SECONDS:
                 lap_text = f"{data:.{self.decimals_laps}f}"[:self.char_width]
             else:
                 lap_text = TEXT_PLACEHOLDER
@@ -372,30 +379,22 @@ class Realtime(Overlay):
         """Player refill"""
         if target.last != data:
             target.last = data
-            if data > -MAGIC_NUM:
+            if data > -MAX_SECONDS:
                 if not energy_type:
-                    data = self.fuel_units(data)
+                    data = self.unit_fuel(data)
                 refill_text = f"{data:{self.refill_sign}.{self.decimals_refill}f}"[:self.char_width].strip(".")
             else:
                 refill_text = TEXT_PLACEHOLDER
             target.setText(refill_text)
 
     # Additional methods
-    def fuel_units(self, fuel):
-        """2 different fuel unit conversion, default is Liter"""
-        if self.cfg.units["fuel_unit"] == "Gallon":
-            return calc.liter2gallon(fuel)
-        return fuel
-
     def create_pit_time_set(self, total_slot, suffix):
         """Create pit time set"""
-        pit_time_set = [0, 0]  # reserved first 2 slots
-        predications = [
-            max(self.wcfg[f"predication_{index + 1}_{suffix}_pit_time"], 0)
-            for index in range(total_slot - 3)]
-        pit_time_set.extend(predications)
-        pit_time_set.append(0)  # reserved last slot
-        return pit_time_set
+        yield 0  # reserved first 2 slots
+        yield 0
+        for index in range(total_slot - 3):
+            yield max(self.wcfg[f"predication_{index + 1}_{suffix}_pit_time"], 0)
+        yield 0  # reserved last slot
 
     def set_highlight_range(self, laptime_pace, lap_final):
         """Final lap highlight range"""
@@ -408,7 +407,7 @@ class Realtime(Overlay):
         return 0
 
 
-def calc_laptime_pace(samples: int = 6, margin: float = 5, laptime: float = MAGIC_NUM):
+def calc_laptime_pace(samples: int = 6, margin: float = 5, laptime: float = MAX_SECONDS):
     """Calculate lap time pace for specific player"""
     laptime_pace = laptime
     laptime_margin = margin
@@ -447,7 +446,7 @@ def calc_laptime_pace(samples: int = 6, margin: float = 5, laptime: float = MAGI
                             calc.exp_mov_avg(ema_factor, laptime_pace, laptime_last),
                             laptime_pace + laptime_margin,
                         )
-                elif laptime_pace >= MAGIC_NUM:
+                elif laptime_pace >= MAX_SECONDS:
                     laptime_pace = reset_laptime(player_index)
                 validating = 0
             elif timer > 10:  # switch off after 10s
@@ -459,7 +458,7 @@ def reset_laptime(index: int) -> float:
     return min(filter(verify_laptime,
         (api.read.timing.last_laptime(index),
         api.read.timing.best_laptime(index),
-        MAGIC_NUM)))
+        MAX_SECONDS)))
 
 
 def verify_laptime(laptime: float) -> bool:

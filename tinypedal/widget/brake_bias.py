@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -133,9 +133,9 @@ class Realtime(Overlay):
             # Brake migration
             if self.wcfg["show_brake_migration"]:
                 bmigt = self.brake_bmigt.calc(
-                    brake_raw=api.read.inputs.brake_raw(),
-                    brake_bias=bbias,
-                    brake_pres=api.read.brake.pressure()
+                    api.read.inputs.brake_raw(),
+                    bbias,
+                    api.read.brake.pressure()
                 )
                 self.update_bmigt(self.bar_bmigt, bmigt)
 
@@ -184,6 +184,13 @@ class Realtime(Overlay):
 
 class BrakeMigration:
     """Brake migration detection & calculation"""
+
+    __slots__ = (
+        "_bpres_max",
+        "_bpres_scale",
+        "_ebrake_alloc",
+        "_auto_detect",
+    )
 
     def __init__(self, ebrake_alloc: int) -> None:
         """

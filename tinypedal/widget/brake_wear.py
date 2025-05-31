@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,10 +21,10 @@ Brake Wear Widget
 """
 
 from .. import calculation as calc
-from .. import heatmap as hmp
-from ..regex_pattern import TEXT_NOTAVAILABLE
 from ..api_control import api
+from ..const_common import TEXT_NA
 from ..module_info import minfo
+from ..userfile.heatmap import select_brake_failure_thickness, set_predefined_brake_name
 from ._base import Overlay
 
 
@@ -72,7 +72,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_remaining"])
             )
             self.bars_wear = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=self.bar_style_wear[0],
                 width=bar_width,
                 count=4,
@@ -106,7 +106,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_wear_difference"])
             )
             self.bars_diff = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=self.bar_style_diff[0],
                 width=bar_width,
                 count=4,
@@ -139,7 +139,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_lifespan_laps"])
             )
             self.bars_laps = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=self.bar_style_laps[0],
                 width=bar_width,
                 count=4,
@@ -172,7 +172,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_lifespan_minutes"])
             )
             self.bars_mins = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=self.bar_style_mins[0],
                 width=bar_width,
                 count=4,
@@ -240,9 +240,11 @@ class Realtime(Overlay):
                 elif not self.wcfg["show_thickness"]:  # convert to percent
                     wear_curr[idx] *= 100 / self.wear_stint_start[idx]
 
-                # Update wear differences
-                self.wear_prev[idx], self.wear_curr_lap[idx] = calc.wear_difference(
-                    wear_curr[idx], self.wear_prev[idx], self.wear_curr_lap[idx])
+                # Update wear differences & accumulated wear
+                wear_diff = self.wear_prev[idx] - wear_curr[idx]
+                self.wear_prev[idx] = wear_curr[idx]
+                if wear_diff > 0:
+                    self.wear_curr_lap[idx] += wear_diff
 
                 # Remaining wear
                 if self.wcfg["show_remaining"]:
@@ -326,11 +328,11 @@ class Realtime(Overlay):
 
     def update_failure_thickness(self, class_name: str):
         """Update failure thickness"""
-        failure_thickness_f = hmp.select_brake_failure_thickness(
-            hmp.set_predefined_brake_name(class_name, True)
+        failure_thickness_f = select_brake_failure_thickness(
+            set_predefined_brake_name(class_name, True)
         )
-        failure_thickness_r = hmp.select_brake_failure_thickness(
-            hmp.set_predefined_brake_name(class_name, False)
+        failure_thickness_r = select_brake_failure_thickness(
+            set_predefined_brake_name(class_name, False)
         )
         self.failure_thickness = (
             failure_thickness_f,

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,30 +21,34 @@ Notes module
 """
 
 from __future__ import annotations
-from collections.abc import Callable
 
-from ._base import DataModule
-from ..module_info import minfo, NotesInfo
-from ..api_control import api
-from ..file_constants import FileExt
+from typing import Callable
+
 from .. import calculation as calc
+from ..api_control import api
+from ..const_file import FileExt
+from ..module_info import NotesInfo, minfo
 from ..userfile.track_notes import (
-    load_notes_file,
-    parse_csv_notes_only,
     COLUMN_DISTANCE,
     HEADER_PACE_NOTES,
     HEADER_TRACK_NOTES,
+    load_notes_file,
+    parse_csv_notes_only,
 )
+from ._base import DataModule
 
 
 class Realtime(DataModule):
     """Notes data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
@@ -55,7 +59,7 @@ class Realtime(DataModule):
 
         setting_playback = self.cfg.user.setting["pace_notes_playback"]
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:
@@ -169,7 +173,7 @@ def end_note_index(notes: list | None) -> int:
     return len(notes) - 1
 
 
-def reference_notes_index(notes: list | None) -> list | None:
+def reference_notes_index(notes: list | None) -> list[float] | None:
     """Reference notes index"""
     if notes is None:
         return None

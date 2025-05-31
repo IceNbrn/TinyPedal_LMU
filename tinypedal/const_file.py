@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -36,6 +36,8 @@ class ConfigType:
     # Setting preset
     CONFIG = "config"
     SETTING = "setting"
+    # File lock
+    FILELOCK = "filelock"
     # Module ID
     MODULE = "module"
     WIDGET = "widget"
@@ -45,6 +47,7 @@ class ConfigType:
     CLASSES = "classes"
     COMPOUNDS = "compounds"
     HEATMAP = "heatmap"
+    TRACKS = "tracks"
 
 
 class FileExt:
@@ -69,6 +72,7 @@ class FileExt:
     TPPN = ".tppn"
     TPTN = ".tptn"
     STATS = ".stats"
+    LOCK = ".lock"
 
 
 class FileFilter:
@@ -99,3 +103,9 @@ class ImageFile:
     INSTRUMENT = "images/icon_instrument.png"
     STEERING_WHEEL = "images/icon_steering_wheel.png"
     WEATHER = "images/icon_weather.png"
+
+
+class StatsFile:
+    """Stats file name constants"""
+
+    DRIVER = "driver"

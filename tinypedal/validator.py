@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,6 +21,7 @@ Validator function
 """
 
 from __future__ import annotations
+
 import logging
 import os
 import re
@@ -28,39 +29,39 @@ import time
 from math import isfinite
 from typing import Any
 
-from .file_constants import FileExt
-
-TYPE_NUMBER = float, int
+from .const_common import MAX_SECONDS
+from .const_file import FileExt
+from .regex_pattern import CFG_INVALID_FILENAME, rex_hex_color
 
 logger = logging.getLogger(__name__)
 
 
 # Value validate
-def infnan2zero(value: Any) -> float | int:
-    """Convert invalid value to zero
-
-    Some data from API may contain invalid value
-    due to events such as game crash or freeze,
-    use this to correct output value.
-    """
-    if isinstance(value, TYPE_NUMBER) and isfinite(value):
+def infnan_to_zero(value: Any) -> float | int:
+    """Convert invalid value (inf or nan) to zero"""
+    if isfinite(value):  # isinstance(value, TYPE_NUMBER)
         return value
     return 0
 
 
-def cbytes2str(bytestring: bytes | Any, char_encoding: str = "utf-8") -> str:
+def bytes_to_str(bytestring: bytes | Any, char_encoding: str = "utf-8") -> str:
     """Convert bytes to string"""
     if isinstance(bytestring, bytes):
         return bytestring.decode(encoding=char_encoding, errors="replace").rstrip()
     return ""
 
 
-def allowed_filename(invalid_filename: str, filename: str) -> bool:
-    """Validate setting filename"""
-    return re.search(invalid_filename, filename.lower()) is None
+def is_allowed_filename(filename: str) -> bool:
+    """Is allowed setting file name"""
+    return re.search(CFG_INVALID_FILENAME, filename, flags=re.IGNORECASE) is None
 
 
-def string_number(value: str) -> bool:
+def invalid_save_name(name: str) -> bool:
+    """Is invalid save name"""
+    return name == "" or name[:3] == " - " or name[-3:] == " - "
+
+
+def is_string_number(value: str) -> bool:
     """Validate string number"""
     try:
         float(value)
@@ -69,33 +70,26 @@ def string_number(value: str) -> bool:
         return False
 
 
-def sector_time(sec_time: list | Any, magic_num: int = 99999) -> bool:
-    """Validate sector time"""
-    if isinstance(sec_time, list):
-        return magic_num not in sec_time
-    return magic_num != sec_time
+def valid_sectors(sector_time: list | Any, max_time: float = MAX_SECONDS) -> bool:
+    """Is valid sector time"""
+    if isinstance(sector_time, list):
+        return max_time not in sector_time
+    return max_time != sector_time
 
 
-def same_session(
+def is_same_session(
     combo_id: str, session_id: tuple[int, int, int],
     last_session_id: tuple[str, int, int, int]) -> bool:
     """Check if same session, car, track combo"""
     return (
         combo_id == last_session_id[0] and
-        last_session_id[1] == session_id[0] and
-        last_session_id[2] <= session_id[1] and
-        last_session_id[3] <= session_id[2]
+        last_session_id[1] == session_id[0] and  # session time stamp
+        last_session_id[2] <= session_id[1] and  # session elapsed time
+        last_session_id[3] <= session_id[2]  # total completed laps
     )
 
 
-def value_type(value: Any, default: Any) -> Any:
-    """Validate if value is same type as default, return default value if False"""
-    if isinstance(value, type(default)):
-        return value
-    return default
-
-
-# Path & file validate
+# File validate
 def file_last_modified(filepath: str = "", filename: str = "", extension: str = "") -> float:
     """Check file last modified time, 0 if file not exist"""
     filename_full = f"{filepath}{filename}{extension}"
@@ -104,37 +98,7 @@ def file_last_modified(filepath: str = "", filename: str = "", extension: str = 
     return 0
 
 
-def user_data_path(filepath: str) -> str:
-    """Set user data path, create if not exist"""
-    if not os.path.exists(filepath):
-        logger.info("%s folder does not exist, attemp to create", filepath)
-        try:
-            os.mkdir(filepath)
-        except (PermissionError, FileExistsError, FileNotFoundError):
-            logger.error("failed to create %s folder", filepath)
-            return ""
-    return filepath
-
-
-def relative_path(filepath: str) -> str:
-    """Convert absolute path to relative if path is inside APP root folder"""
-    try:
-        rel_path = os.path.relpath(filepath)
-        if rel_path.startswith(".."):
-            output_path = filepath
-        else:
-            output_path = rel_path
-    except ValueError:
-        output_path = filepath
-    # Convert backslash to slash
-    output_path = output_path.replace("\\", "/")
-    # Make sure path end with "/"
-    if not output_path.endswith("/"):
-        output_path += "/"
-    return output_path
-
-
-def image_file(filepath: str, extension: str = FileExt.PNG, max_size: int = 5120000) -> bool:
+def image_exists(filepath: str, extension: str = FileExt.PNG, max_size: int = 5120000) -> bool:
     """Validate image file path, file format (default PNG), max file size (default < 5MB)"""
     return (
         os.path.exists(filepath) and
@@ -144,23 +108,37 @@ def image_file(filepath: str, extension: str = FileExt.PNG, max_size: int = 5120
 
 
 # Delta list validate
-def delta_list(data: list) -> list:
-    """Validate delta data list"""
+def valid_delta_set(data: tuple) -> tuple:
+    """Validate delta data set"""
     # Final row value(second column) must be higher than previous row
     if data[-1][1] < data[-2][1]:
         raise ValueError
-    # Remove distance greater than half of track length
-    half_distance = data[-1][0] * 0.5
+    # Check distance greater than next row for first 10 rows
     for idx in range(11, 0, -1):
-        if data[idx][0] > half_distance:
-            data.pop(idx)
+        if data[idx][0] > data[idx + 1][0]:
+            raise ValueError
     # Delta list must have at least 10 lines of samples
     if len(data) < 10:
         raise ValueError
     return data
 
 
-# Dictionary value type validate
+# Value type validate
+def valid_value_type(value: Any, default: Any) -> Any:
+    """Validate if value is same type as default, return default value if False"""
+    if isinstance(value, type(default)):
+        return value
+    return default
+
+
+def convert_value_type(value: Any, default: Any, target_type: type) -> Any:
+    """Convert any value type to target type, revert to default if fails"""
+    try:
+        return target_type(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
 def dict_value_type(data: dict, default_data: dict) -> dict:
     """Validate and correct dictionary value type"""
     for key, value in data.items():
@@ -169,17 +147,15 @@ def dict_value_type(data: dict, default_data: dict) -> dict:
 
 
 # Color validate
-def hex_color(color_str: str | Any) -> bool:
+def is_hex_color(color_str: str | Any) -> bool:
     """Validate HEX color string"""
-    if isinstance(color_str, str) and re.match("#", color_str):
-        color = color_str[1:]  # remove left-most sharp sign
-        if len(color) in [3,6,8]:
-            return re.search(r'[^0-9A-F]', color, flags=re.IGNORECASE) is None
+    if isinstance(color_str, str):
+        return rex_hex_color(color_str) is not None
     return False
 
 
 # Time format validate
-def clock_format(_format: str) -> bool:
+def is_clock_format(_format: str) -> bool:
     """Validate clock time format"""
     try:
         time.strftime(_format, time.gmtime(0))
@@ -189,8 +165,8 @@ def clock_format(_format: str) -> bool:
 
 
 # Desync check
-def position_sync(max_diff: float = 200, max_desync: int = 20):
-    """Position synchronization
+def vehicle_position_sync(max_diff: float = 200, max_desync: int = 20):
+    """Vehicle position synchronization
 
     Args:
         max_diff: max delta position (meters). Exceeding max delta counts as new lap.

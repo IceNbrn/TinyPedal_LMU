@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,18 +22,22 @@ Weather forecast Widget
 
 from __future__ import annotations
 
-from PySide2.QtCore import Qt, QRect
-from PySide2.QtGui import QPixmap, QPainter
+from PySide2.QtCore import Qt
+from PySide2.QtGui import QPainter, QPixmap
 
-from .. import calculation as calc
-from .. import weather as wthr
 from ..api_control import api
-from ..file_constants import ImageFile
-from ..module_info import minfo, WeatherNode
-from ..regex_pattern import TEXT_NOTAVAILABLE
+from ..const_common import (
+    ABS_ZERO_CELSIUS,
+    MAX_FORECAST_MINUTES,
+    MAX_FORECASTS,
+    TEXT_NA,
+)
+from ..const_file import ImageFile
+from ..module_info import WeatherNode
+from ..process.weather import forecast_sky_type, get_forecast_info
+from ..units import set_unit_temperature
 from ._base import Overlay
-
-MAX_FORECASTS = 5
+from ._painter import split_pixmap_icon
 
 
 class Realtime(Overlay):
@@ -52,10 +56,13 @@ class Realtime(Overlay):
         # Config variable
         layout_reversed = self.wcfg["layout"] != 0
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
-        icon_size = int(max(self.wcfg["icon_size"], 16) * 0.5) * 2
+        icon_size = max(self.wcfg["icon_size"], 16) // 2 * 2
         self.total_slot = min(max(self.wcfg["number_of_forecasts"], 1), MAX_FORECASTS - 1) + 1
         self.bar_width = max(font_m.width * 4 + bar_padx, icon_size)
         self.bar_rain_height = max(self.wcfg["rain_chance_bar_height"], 1)
+
+        # Config units
+        self.unit_temp = set_unit_temperature(self.cfg.units["temperature_unit"])
 
         # Base style
         base_style = self.set_qss(
@@ -75,7 +82,7 @@ class Realtime(Overlay):
                 bg_color=self.wcfg["bkg_color_estimated_time"]
             )
             self.bars_time = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=bar_style_time,
                 fixed_width=self.bar_width,
                 count=self.total_slot,
@@ -95,7 +102,7 @@ class Realtime(Overlay):
                 bg_color=self.wcfg["bkg_color_ambient_temperature"]
             )
             self.bars_temp = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=bar_style_temp,
                 fixed_width=self.bar_width,
                 count=self.total_slot,
@@ -143,7 +150,7 @@ class Realtime(Overlay):
         )
 
         # Last data
-        self.estimated_time = [wthr.MAX_MINUTES] * MAX_FORECASTS
+        self.estimated_time = [MAX_FORECAST_MINUTES] * MAX_FORECASTS
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
@@ -176,7 +183,7 @@ class Realtime(Overlay):
             # Update slot 0 with live(now) weather condition
             if index == 0:
                 rain_chance = api.read.session.raininess() * 100
-                icon_index = wthr.sky_type_correction(forecast_info[index_bias].sky_type, rain_chance)
+                icon_index = forecast_sky_type(forecast_info[index_bias].sky_type, rain_chance)
                 estimated_temp = api.read.session.ambient_temperature()
                 estimated_time = 0
             # Update slot with available forecast
@@ -185,15 +192,15 @@ class Realtime(Overlay):
                 icon_index = forecast_info[index_bias].sky_type
                 estimated_temp = forecast_info[index_bias].temperature
                 if is_lap_type:
-                    estimated_time = wthr.MAX_MINUTES
+                    estimated_time = MAX_FORECAST_MINUTES
                 else:
                     estimated_time = self.estimated_time[index_bias]
             # Update slot with unavailable forecast
             else:
                 rain_chance = 0
                 icon_index = -1
-                estimated_temp = wthr.MIN_TEMPERATURE
-                estimated_time = wthr.MAX_MINUTES
+                estimated_temp = ABS_ZERO_CELSIUS
+                estimated_time = MAX_FORECAST_MINUTES
 
             self.update_weather_icon(self.bars_icon[index], icon_index, index)
 
@@ -211,8 +218,8 @@ class Realtime(Overlay):
         """Estimated time"""
         if target.last != data:
             target.last = data
-            if data >= wthr.MAX_MINUTES or data < 0:
-                time_text = TEXT_NOTAVAILABLE
+            if data >= MAX_FORECAST_MINUTES or data < 0:
+                time_text = TEXT_NA
             elif data >= 60:
                 time_text = f"{data / 60:.1f}h"
             else:
@@ -223,10 +230,10 @@ class Realtime(Overlay):
         """Estimated temperature"""
         if target.last != data:
             target.last = data
-            if data > wthr.MIN_TEMPERATURE:
-                temp_text = self.format_temperature(data)
+            if data > ABS_ZERO_CELSIUS:
+                temp_text = f"{self.unit_temp(data):.0f}°"
             else:
-                temp_text = TEXT_NOTAVAILABLE
+                temp_text = TEXT_NA
             target.setText(temp_text)
 
     def update_rain_chance_bar(self, target, data):
@@ -260,12 +267,6 @@ class Realtime(Overlay):
                     self.bars_rain[slot_index].setHidden(unavailable)
 
     # Additional methods
-    def format_temperature(self, air_deg):
-        """Format ambient temperature"""
-        if self.cfg.units["temperature_unit"] == "Fahrenheit":
-            return f"{calc.celsius2fahrenheit(air_deg):.0f}°"
-        return f"{air_deg:.0f}°"
-
     def set_forecast_time(self, forecast_info: list[WeatherNode]) -> int:
         """Set forecast estimated time"""
         index_offset = 0
@@ -274,45 +275,19 @@ class Realtime(Overlay):
         for index, forecast in enumerate(forecast_info):
             if index == 0:
                 continue
-            _time = self.estimated_time[index] = min(round(
-                wthr.forecast_time_progress(
-                    forecast.start_minute, session_length, elapsed_time,
-                ) / 60), wthr.MAX_MINUTES)
+            # Seconds away = next node start seconds * session length - elapsed time
+            _time = self.estimated_time[index] = round(
+                (forecast.start_seconds * session_length - elapsed_time) / 60)
             if _time <= 0:
                 index_offset += 1
         return index_offset
-
-
-def get_forecast_info(session_type: int) -> list[WeatherNode]:
-    """Get forecast info"""
-    if session_type <= 1:  # practice session
-        info = minfo.restapi.forecastPractice
-    elif session_type == 2:  # qualify session
-        info = minfo.restapi.forecastQualify
-    else:
-        info = minfo.restapi.forecastRace  # race session
-    if info:
-        return info
-    return wthr.DEFAULT  # get default if no valid data
 
 
 def create_weather_icon_set(icon_size: int):
     """Create weather icon set"""
     icon_source = QPixmap(ImageFile.WEATHER)
     pixmap_icon = icon_source.scaledToWidth(icon_size * 12, mode=Qt.SmoothTransformation)
-    rect_size = QRect(0, 0, icon_size, icon_size)
-    rect_offset = QRect(0, 0, icon_size, icon_size)
     return tuple(
-        draw_weather_icon(pixmap_icon, icon_size, rect_size, rect_offset, index)
-        for index in range(12))
-
-
-def draw_weather_icon(
-    pixmap_icon: QPixmap, icon_size: int, rect_size: QRect, rect_offset: QRect, h_offset: int):
-    """Draw weather icon"""
-    pixmap = QPixmap(icon_size, icon_size)
-    pixmap.fill(Qt.transparent)
-    painter = QPainter(pixmap)
-    rect_offset.moveLeft(icon_size * h_offset)
-    painter.drawPixmap(rect_size, pixmap_icon, rect_offset)
-    return pixmap
+        split_pixmap_icon(pixmap_icon, icon_size, h_offset)
+        for h_offset in range(12)
+    )

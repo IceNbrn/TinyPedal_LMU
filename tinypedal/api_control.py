@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,8 +22,8 @@ API control
 
 import logging
 
-from .setting import cfg
 from .api_connector import API_PACK
+from .setting import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ class APIControl:
     def version(self) -> str:
         """API version output"""
         version = self.read.check.api_version()
-        return version if version else "not running"
+        return version if version else "unknown"
 
 
 api = APIControl()

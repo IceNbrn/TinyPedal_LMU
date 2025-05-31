@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,8 +20,8 @@
 Track map Widget
 """
 
-from PySide2.QtCore import Qt, QRectF
-from PySide2.QtGui import QPainterPath, QPainter, QPixmap, QPen, QBrush
+from PySide2.QtCore import QRectF, Qt
+from PySide2.QtGui import QBrush, QPainter, QPainterPath, QPen, QPixmap
 
 from .. import calculation as calc
 from ..api_control import api
@@ -71,14 +71,13 @@ class Realtime(Overlay):
         )
 
         if self.wcfg["show_pitout_prediction"]:
+            self.show_while_requested = self.wcfg["show_pitout_prediction_while_requested_pitstop"]
             self.predication_count = min(max(self.wcfg["number_of_predication"], 1), 20)
             self.pitout_time_offset = max(self.wcfg["pitout_time_offset"], 0)
             self.min_pit_time = self.wcfg["pitstop_duration_minimum"] + self.pitout_time_offset
-            self.pit_time_step = max(self.wcfg["pitstop_duration_increment"], 1)
+            self.pit_time_increment = max(self.wcfg["pitstop_duration_increment"], 1)
             self.pen_pit_styles = self.set_veh_pen_style("predication_outline"), QPen(self.wcfg["font_color_pitstop_duration"])
             self.pit_text_shape = self.veh_shape.adjusted(-2, font_offset - veh_size - 3, 2, -veh_size - 3)
-            self.last_pit_state = -1
-            self.pitout_dist = 0
 
         # Last data
         self.last_modified = 0
@@ -88,6 +87,7 @@ class Realtime(Overlay):
         self.map_range = (0, 10, 0, 10)
         self.map_scale = 1
         self.map_offset = (0, 0)
+        self.map_orient = 0  # radians
 
         self.update_map(-1)
 
@@ -110,7 +110,8 @@ class Realtime(Overlay):
         """Map update"""
         if self.last_modified != data:
             self.last_modified = data
-            map_path = self.create_map_path(minfo.mapping.coordinates)
+            raw_data = minfo.mapping.coordinates if data != -1 else None
+            map_path = self.create_map_path(raw_data)
             self.draw_map_image(map_path, self.circular_map)
 
     def paintEvent(self, event):
@@ -138,23 +139,24 @@ class Realtime(Overlay):
         map_path = QPainterPath()
         if raw_coords:
             dist = calc.distance(raw_coords[0], raw_coords[-1])
+            angle = max(int(self.wcfg["display_orientation"]), 0)
+            angle = angle - angle // 360 * 360
+            self.map_orient = calc.deg2rad(angle)
             (self.map_scaled, self.map_range, self.map_scale, self.map_offset
-             ) = calc.scale_map(raw_coords, self.area_size, self.area_margin)
+             ) = calc.scale_map(raw_coords, self.area_size, self.area_margin, angle)
 
-            total_nodes = len(self.map_scaled)
-            skip_node = total_nodes // (self.temp_map_size * 3) * self.display_detail_level
-            skipped_last_node = (total_nodes - 1) % skip_node if skip_node else 0
+            total_nodes = len(self.map_scaled) - 1
+            skip_node = calc.skip_map_nodes(total_nodes, self.temp_map_size * 3, self.display_detail_level)
             last_skip = 0
             for index, coords in enumerate(self.map_scaled):
                 if index == 0:
                     map_path.moveTo(*coords)
+                elif index >= total_nodes:  # don't skip last node
+                    map_path.lineTo(*coords)
                 elif last_skip >= skip_node:
                     map_path.lineTo(*coords)
                     last_skip = 0
                 last_skip += 1
-
-            if skipped_last_node:  # set last node if skipped
-                map_path.lineTo(*self.map_scaled[-1])
 
             # Close map loop if start & end distance less than 500 meters
             if dist < 500:
@@ -167,6 +169,7 @@ class Realtime(Overlay):
         else:
             self.map_scaled = None
             self.circular_map = True
+            self.map_orient = 0
             map_path.addEllipse(
                 self.area_margin,
                 self.area_margin,
@@ -255,17 +258,24 @@ class Realtime(Overlay):
 
     def draw_vehicle(self, painter, map_data, veh_info, veh_draw_order):
         """Draw vehicles"""
+        if map_data:
+            # Position = coords * scale - (min_range * scale - offset)
+            x_offset = self.map_range[0] * self.map_scale - self.map_offset[0]  # min range x, offset x
+            y_offset = self.map_range[2] * self.map_scale - self.map_offset[1]  # min range y, offset y
+        else:
+            offset = self.area_size * 0.5
+
         for index in veh_draw_order:
             data = veh_info[index]
             is_player = data.isPlayer
             if map_data:
-                # Position = (coords - min_range) * scale + offset, round to prevent bouncing
-                pos_x = round(
-                    (data.worldPositionX - self.map_range[0])  # min range x
-                    * self.map_scale + self.map_offset[0])  # offset x
-                pos_y = round(
-                    (data.worldPositionY - self.map_range[2])  # min range y
-                    * self.map_scale + self.map_offset[1])  # offset y
+                if self.map_orient:
+                    rot_x, rot_y = calc.rotate_coordinate(self.map_orient, data.worldPositionX, data.worldPositionY)
+                    pos_x = rot_x * self.map_scale - x_offset
+                    pos_y = rot_y * self.map_scale - y_offset
+                else:
+                    pos_x = data.worldPositionX * self.map_scale - x_offset
+                    pos_y = data.worldPositionY * self.map_scale - y_offset
                 painter.translate(pos_x, pos_y)
             else:  # vehicles on temp map
                 inpit_offset = self.wcfg["font_size"] * data.inPit
@@ -274,7 +284,6 @@ class Realtime(Overlay):
                     self.temp_map_size / -2 + inpit_offset,  # x pos
                     0,  # y pos
                 )
-                offset = self.area_size * 0.5
                 painter.translate(offset + pos_x, offset + pos_y)
 
             painter.setPen(self.pen_veh[is_player])
@@ -293,15 +302,12 @@ class Realtime(Overlay):
 
     def draw_pitout_prediction(self, painter, map_data, plr_veh_info):
         """Draw pitout prediction circles"""
-        pit_state = plr_veh_info.inPit
-        if self.last_pit_state != pit_state:
-            self.last_pit_state = pit_state
-            if not pit_state:  # mark pitout position
-                self.pitout_dist = api.read.lap.distance()
-
-        # Skip drawing if not in pit
-        if not pit_state:
-            return
+        # Skip drawing
+        if not plr_veh_info.inPit:
+            if not self.show_while_requested:  # if not in pit
+                return
+            if not plr_veh_info.pitState:  # not requested pit
+                return
 
         # Verify data set
         if not map_data:
@@ -319,20 +325,27 @@ class Realtime(Overlay):
             return
 
         laptime_scale = laptime_best / laptime_pace
-        pit_timer = plr_veh_info.pitTimer.elapsed
-        dist_max_index = min(len(dist_data), len(map_data)) - 1
-        target_pit_time = self.min_pitstop_duration(pit_timer, self.min_pit_time, self.pit_time_step)
+        dist_end_index = min(len(dist_data), len(map_data)) - 1
+
+        # Calculate pit timer & target time
+        if plr_veh_info.pitState and not plr_veh_info.inPit:  # out pit lane
+            pitin_time = target_node_time(minfo.mapping.pitEntryPosition, deltabest_data, deltabest_max_index, laptime_scale)
+            pos_curr_time = target_node_time(api.read.lap.distance(), deltabest_data, deltabest_max_index, laptime_scale)
+            pit_timer = pos_curr_time - pitin_time
+            target_pit_time = self.min_pit_time
+        else:  # in pit lane
+            pit_timer = plr_veh_info.pitTimer.elapsed
+            target_pit_time = target_pitstop_duration(pit_timer, self.min_pit_time, self.pit_time_increment)
 
         # Find time_into from deltabest_data, scale to match laptime_pace
-        node_index = calc.binary_search_higher_column(deltabest_data, self.pitout_dist, 0, deltabest_max_index, 0)
-        pitout_time_extend = deltabest_data[node_index][1] / laptime_scale + pit_timer
+        pitout_time = target_node_time(minfo.mapping.pitExitPosition, deltabest_data, deltabest_max_index, laptime_scale)
+        pitout_time_extend = pit_timer + pitout_time
 
         painter.setBrush(Qt.NoBrush)
         for _ in range(self.predication_count):
             # Calc estimated pitout_time_into based on laptime_pace
             offset_time_into = pitout_time_extend - target_pit_time
-            pitout_time_into = offset_time_into - offset_time_into // laptime_pace * laptime_pace
-            pitout_time_into *= laptime_scale  # scale to match laptime_best
+            pitout_time_into = (offset_time_into - offset_time_into // laptime_pace * laptime_pace) * laptime_scale
             # Find estimated distance from deltabest_data
             index_higher = calc.binary_search_higher_column(
                 deltabest_data, pitout_time_into, 0, deltabest_max_index, 1)
@@ -348,8 +361,8 @@ class Realtime(Overlay):
             else:
                 estimate_dist = 0
 
-            node_index = calc.binary_search_higher_column(dist_data, estimate_dist, 0, dist_max_index)
-            painter.translate(*map(round, map_data[node_index]))
+            dist_node_index = calc.binary_search_higher_column(dist_data, estimate_dist, 0, dist_end_index)
+            painter.translate(*map_data[dist_node_index])
             painter.setPen(self.pen_pit_styles[0])
             painter.drawEllipse(self.veh_shape)
 
@@ -360,7 +373,7 @@ class Realtime(Overlay):
                 text_time = f"{min(target_pit_time - self.pitout_time_offset, 999):.0f}"
                 painter.drawText(self.pit_text_shape, Qt.AlignCenter, text_time)
 
-            target_pit_time += self.pit_time_step
+            target_pit_time += self.pit_time_increment
             painter.resetTransform()
 
     def classes_style(self, class_name: str) -> str:
@@ -369,7 +382,7 @@ class Realtime(Overlay):
             return self.brush_classes[class_name]
         # Get vehicle class style from user defined dictionary
         brush = QBrush(Qt.SolidPattern)
-        styles = self.cfg.user.classes.get(class_name, None)
+        styles = self.cfg.user.classes.get(class_name)
         if styles is not None:
             brush.setColor(styles["color"])
         else:
@@ -414,8 +427,14 @@ class Realtime(Overlay):
             for suffix in suffixes
         }
 
-    @staticmethod
-    def min_pitstop_duration(pit_timer, min_pit_time, pit_time_step):
-        """Set min_pit_time higher than pit_timer by pit_time_step"""
-        overflow_time = max(pit_timer - min_pit_time + pit_time_step, 0)
-        return min_pit_time + overflow_time // pit_time_step * pit_time_step
+
+def target_pitstop_duration(pit_timer: float, min_pit_time: float, pit_time_increment: float) -> float:
+    """Target pitstop duration = min pit duration + pit duration increment * number of increments"""
+    overflow_increments = max(pit_timer - min_pit_time + pit_time_increment, 0) // pit_time_increment
+    return min_pit_time + pit_time_increment * overflow_increments
+
+
+def target_node_time(position: float, delta_data: tuple, max_index: int, laptime_scale: float) -> float:
+    """Calculate target node time from target position and deltabest dataset"""
+    pitin_node_index = calc.binary_search_higher_column(delta_data, position, 0, max_index, 0)
+    return delta_data[pitin_node_index][1] / laptime_scale

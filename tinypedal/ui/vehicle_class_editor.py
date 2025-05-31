@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,29 +20,29 @@
 Vehicle class editor
 """
 
-import time
 import random
+import time
 
 from PySide2.QtWidgets import (
-    QVBoxLayout,
     QHBoxLayout,
-    QDialogButtonBox,
-    QPushButton,
+    QHeaderView,
+    QMessageBox,
     QTableWidget,
     QTableWidgetItem,
-    QMessageBox,
-    QHeaderView,
+    QVBoxLayout,
 )
 
 from ..api_control import api
-from ..setting import ConfigType, cfg, copy_setting
+from ..const_file import ConfigType
+from ..formatter import random_color_class
 from ..module_control import wctrl
-from .. import formatter as fmt
+from ..setting import cfg, copy_setting
 from ._common import (
-    BaseEditor,
-    DoubleClickEdit,
     QVAL_COLOR,
-    QSS_EDITOR_BUTTON,
+    BaseEditor,
+    CompactButton,
+    DoubleClickEdit,
+    UIScaler,
 )
 
 HEADER_CLASSES = "Class name","Alias name","Color"
@@ -54,7 +54,7 @@ class VehicleClassEditor(BaseEditor):
     def __init__(self, parent):
         super().__init__(parent)
         self.set_utility_title("Vehicle Class Editor")
-        self.setMinimumSize(400, 400)
+        self.setMinimumSize(UIScaler.size(30), UIScaler.size(30))
 
         self.classes_temp = copy_setting(cfg.user.classes)
 
@@ -65,9 +65,8 @@ class VehicleClassEditor(BaseEditor):
         self.table_classes.verticalHeader().setVisible(False)
         self.table_classes.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table_classes.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        font_w = self.fontMetrics().averageCharWidth()
         self.table_classes.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table_classes.setColumnWidth(2, font_w * 14)
+        self.table_classes.setColumnWidth(2, UIScaler.size(7))
         self.table_classes.cellChanged.connect(self.set_modified)
         self.refresh_table()
         self.set_unmodified()
@@ -79,35 +78,31 @@ class VehicleClassEditor(BaseEditor):
         layout_main = QVBoxLayout()
         layout_main.addWidget(self.table_classes)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
 
     def set_layout_button(self):
         """Set button layout"""
-        button_add = QPushButton("Add")
+        button_add = CompactButton("Add")
         button_add.clicked.connect(self.add_class)
-        button_add.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_sort = QPushButton("Sort")
+        button_sort = CompactButton("Sort")
         button_sort.clicked.connect(self.sort_class)
-        button_sort.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_delete = QPushButton("Delete")
+        button_delete = CompactButton("Delete")
         button_delete.clicked.connect(self.delete_class)
-        button_delete.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_reset = QDialogButtonBox(QDialogButtonBox.Reset)
+        button_reset = CompactButton("Reset")
         button_reset.clicked.connect(self.reset_setting)
-        button_reset.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_apply = QDialogButtonBox(QDialogButtonBox.Apply)
+        button_apply = CompactButton("Apply")
         button_apply.clicked.connect(self.applying)
-        button_apply.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_save = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Close)
-        button_save.accepted.connect(self.saving)
-        button_save.rejected.connect(self.close)
-        button_save.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_save = CompactButton("Save")
+        button_save.clicked.connect(self.saving)
+
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.close)
 
         layout_button = QHBoxLayout()
         layout_button.addWidget(button_add)
@@ -117,6 +112,7 @@ class VehicleClassEditor(BaseEditor):
         layout_button.addStretch(1)
         layout_button.addWidget(button_apply)
         layout_button.addWidget(button_save)
+        layout_button.addWidget(button_close)
         return layout_button
 
     def refresh_table(self):
@@ -147,12 +143,12 @@ class VehicleClassEditor(BaseEditor):
             class_name = api.read.vehicle.class_name(index)
             if not self.is_value_in_table(class_name, self.table_classes):
                 self.add_vehicle_entry(
-                    row_index, class_name, class_name, fmt.random_color_class(class_name))
+                    row_index, class_name, class_name, random_color_class(class_name))
                 row_index += 1
         # Add new class entry
         new_class_name = self.new_name_increment("New Class Name", self.table_classes)
         self.add_vehicle_entry(
-            row_index, new_class_name, "NAME", fmt.random_color_class(str(random.random())))
+            row_index, new_class_name, "NAME", random_color_class(str(random.random())))
         self.table_classes.setCurrentCell(row_index, 0)
 
     def add_vehicle_entry(self, row_index: int, class_name: str, alias_name: str, color: str):
@@ -185,7 +181,7 @@ class VehicleClassEditor(BaseEditor):
     def reset_setting(self):
         """Reset setting"""
         msg_text = (
-            "Are you sure you want to reset class preset to default?<br><br>"
+            "Reset <b>classes preset</b> to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
         if self.confirm_operation(message=msg_text):

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -24,29 +24,29 @@ import logging
 import time
 
 from PySide2.QtWidgets import (
-    QVBoxLayout,
+    QComboBox,
     QHBoxLayout,
-    QDialogButtonBox,
-    QPushButton,
+    QHeaderView,
+    QMessageBox,
     QTableWidget,
     QTableWidgetItem,
-    QMessageBox,
-    QHeaderView,
-    QComboBox,
+    QVBoxLayout,
 )
 
 from ..api_control import api
-from ..setting import ConfigType, cfg, copy_setting
+from ..const_file import ConfigType
 from ..module_control import wctrl
-from ..heatmap import set_predefined_brake_name, HEATMAP_DEFAULT_BRAKE
+from ..setting import cfg, copy_setting
+from ..userfile.heatmap import HEATMAP_DEFAULT_BRAKE, set_predefined_brake_name
 from ._common import (
     BaseEditor,
+    CompactButton,
+    FloatTableItem,
+    UIScaler,
     #TableBatchReplace,
-    QTableFloatItem,
-    QSS_EDITOR_BUTTON,
 )
 
-HEADER_BRAKES = "Brake name","Failure Thickness (mm)","Heatmap name"
+HEADER_BRAKES = "Brake name","Failure (mm)","Heatmap name"
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class BrakeEditor(BaseEditor):
     def __init__(self, parent):
         super().__init__(parent)
         self.set_utility_title("Brake Editor")
-        self.setMinimumSize(600, 500)
+        self.setMinimumSize(UIScaler.size(45), UIScaler.size(38))
 
         self.brakes_temp = copy_setting(cfg.user.brakes)
 
@@ -67,9 +67,10 @@ class BrakeEditor(BaseEditor):
         self.table_brakes.setHorizontalHeaderLabels(HEADER_BRAKES)
         self.table_brakes.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table_brakes.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        font_w = self.fontMetrics().averageCharWidth()
+        self.table_brakes.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
         self.table_brakes.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table_brakes.setColumnWidth(2, font_w * 26)
+        self.table_brakes.setColumnWidth(1, UIScaler.size(8))
+        self.table_brakes.setColumnWidth(2, UIScaler.size(12))
         self.table_brakes.cellChanged.connect(self.verify_input)
         self.refresh_table()
         self.set_unmodified()
@@ -81,39 +82,34 @@ class BrakeEditor(BaseEditor):
         layout_main = QVBoxLayout()
         layout_main.addWidget(self.table_brakes)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
 
     def set_layout_button(self):
         """Set button layout"""
-        button_add = QPushButton("Add")
+        button_add = CompactButton("Add")
         button_add.clicked.connect(self.add_brake)
-        button_add.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_sort = QPushButton("Sort")
+        button_sort = CompactButton("Sort")
         button_sort.clicked.connect(self.sort_brake)
-        button_sort.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_delete = QPushButton("Delete")
+        button_delete = CompactButton("Delete")
         button_delete.clicked.connect(self.delete_brake)
-        button_delete.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        #button_replace = QPushButton("Replace")
+        #button_replace = CompactButton("Replace")
         #button_replace.clicked.connect(self.open_replace_dialog)
-        #button_replace.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_reset = QDialogButtonBox(QDialogButtonBox.Reset)
+        button_reset = CompactButton("Reset")
         button_reset.clicked.connect(self.reset_setting)
-        button_reset.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_apply = QDialogButtonBox(QDialogButtonBox.Apply)
+        button_apply = CompactButton("Apply")
         button_apply.clicked.connect(self.applying)
-        button_apply.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_save = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Close)
-        button_save.accepted.connect(self.saving)
-        button_save.rejected.connect(self.close)
-        button_save.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_save = CompactButton("Save")
+        button_save.clicked.connect(self.saving)
+
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.close)
 
         # Set layout
         layout_button = QHBoxLayout()
@@ -125,6 +121,7 @@ class BrakeEditor(BaseEditor):
         layout_button.addStretch(1)
         layout_button.addWidget(button_apply)
         layout_button.addWidget(button_save)
+        layout_button.addWidget(button_close)
         return layout_button
 
     def refresh_table(self):
@@ -182,7 +179,7 @@ class BrakeEditor(BaseEditor):
         """Add new brake entry to table"""
         self.table_brakes.insertRow(row_index)
         self.table_brakes.setItem(row_index, 0, QTableWidgetItem(class_name))
-        self.table_brakes.setItem(row_index, 1, QTableFloatItem(failure_thickness))
+        self.table_brakes.setItem(row_index, 1, FloatTableItem(failure_thickness))
         self.table_brakes.setCellWidget(row_index, 2, self.__add_option_combolist(heatmap_name))
 
     def sort_brake(self):
@@ -208,7 +205,7 @@ class BrakeEditor(BaseEditor):
     def reset_setting(self):
         """Reset setting"""
         msg_text = (
-            "Are you sure you want to reset brake preset to default?<br><br>"
+            "Reset <b>brakes preset</b> to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
         if self.confirm_operation(message=msg_text):

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -191,6 +191,12 @@ class Realtime(Overlay):
 
 class DiffLockingTimer:
     """Differential locking timer"""
+
+    __slots__ = (
+        "_cooldown",
+        "_timer",
+        "_min_locking",
+    )
 
     def __init__(self, cooldown: float) -> None:
         """

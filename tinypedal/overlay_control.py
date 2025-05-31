@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,12 +22,12 @@ Overlay Control
 
 import logging
 import threading
-from time import sleep, monotonic
+from time import monotonic, sleep
 
 from PySide2.QtCore import QObject, Signal
 
-from .setting import cfg
 from .api_control import api
+from .setting import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,8 @@ class OverlayState(QObject):
 
     def __updating(self):
         """Update global state"""
-        while not self._event.wait(0.2):
+        _event_wait = self._event.wait
+        while not _event_wait(0.2):
             self.active = api.state
             self.__auto_hide_state()
             if cfg.application["enable_auto_load_preset"]:
@@ -147,17 +148,17 @@ class OverlayState(QObject):
             # Assign sim name to last detected, set preset name
             self._last_detected_sim = sim_name
             preset_name = cfg.get_primary_preset_name(sim_name)
-            logger.info("SETTING: auto-load: %s", sim_name)
+            logger.info("USERDATA: %s detected, attempt loading %s (primary preset)", sim_name, preset_name)
             # Abort if preset file does not exist
             if preset_name == "":
-                logger.info("SETTING: auto-load: preset not found, abort")
+                logger.info("USERDATA: %s (primary preset) not found, abort auto loading", preset_name)
                 return
             # Check if already loaded
-            if preset_name == cfg.filename.last_setting:
-                logger.info("SETTING: %s already loaded", preset_name)
+            if cfg.is_loaded(preset_name):
+                logger.info("USERDATA: %s (primary preset) already loaded", preset_name)
                 return
             # Update preset name & signal reload
-            cfg.filename.setting = preset_name
+            cfg.set_next_to_load(preset_name)
             self.reload.emit(True)
 
 

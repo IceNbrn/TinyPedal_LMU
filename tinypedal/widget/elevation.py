@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,12 +20,13 @@
 Elevation Widget
 """
 
-from PySide2.QtCore import Qt, QRectF
-from PySide2.QtGui import QPainterPath, QPainter, QPixmap, QPen, QBrush
+from PySide2.QtCore import QRectF, Qt
+from PySide2.QtGui import QBrush, QPainter, QPainterPath, QPen, QPixmap
 
 from .. import calculation as calc
 from ..api_control import api
 from ..module_info import minfo
+from ..units import set_symbol_distance, set_unit_distance
 from ._base import Overlay
 
 
@@ -68,6 +69,10 @@ class Realtime(Overlay):
         self.elevation_text_alignment = self.set_text_alignment(self.wcfg["elevation_reading_text_alignment"])
         self.scale_text_alignment = self.set_text_alignment(self.wcfg["elevation_scale_text_alignment"])
 
+        # Config units
+        self.unit_dist = set_unit_distance(self.cfg.units["distance_unit"])
+        self.symbol_dist = set_symbol_distance(self.cfg.units["distance_unit"])
+
         # Config canvas
         self.resize(self.display_width, self.display_height)
         self.pixmap_background = QPixmap(self.display_width, self.display_height)
@@ -109,7 +114,8 @@ class Realtime(Overlay):
         """Elevation map update"""
         if self.last_modified != data:
             self.last_modified = data
-            map_path = self.create_elevation_path(minfo.mapping.elevations)
+            raw_data = minfo.mapping.elevations if data != -1 else None
+            map_path = self.create_elevation_path(raw_data)
             self.draw_background(map_path)
             self.draw_progress(map_path)
             self.draw_progress_line(map_path)
@@ -141,13 +147,15 @@ class Realtime(Overlay):
             painter.drawText(
                 self.rect_text_elevation,
                 self.elevation_text_alignment,
-                self.format_elevation(api.read.vehicle.position_vertical())
+                f"{self.unit_dist(api.read.vehicle.position_vertical()):.1f}{self.symbol_dist}"
             )
         if self.wcfg["show_elevation_scale"]:
+            # Format elevation scale (meter or feet per pixel)
+            map_scale = round(self.unit_dist(1 / self.map_scale[1]), 2) if self.map_scale[1] else 1
             painter.drawText(
                 self.rect_text_scale,
                 self.scale_text_alignment,
-                self.format_scale(self.map_scale[1])
+                f"1:{map_scale}"
             )
 
     def create_elevation_path(self, raw_coords=None):
@@ -161,27 +169,25 @@ class Realtime(Overlay):
 
             # Correct start & finish nodes position
             sf_y_average = (self.map_scaled[0][1] + self.map_scaled[-1][1]) * 0.5
-            self.map_scaled[0] = 0, sf_y_average
-            self.map_scaled[-1] = self.display_width, sf_y_average
 
             # Set boundary start node
             map_path.moveTo(-999, self.map_scaled[-2][1])  # 2nd last node y pos
 
             # Set middle nodes
-            total_nodes = len(self.map_scaled)
-            skip_node = total_nodes // self.display_width * self.display_detail_level
-            skipped_last_node = (total_nodes - 1) % skip_node if skip_node else 0
+            total_nodes = len(self.map_scaled) - 1
+            skip_node = calc.skip_map_nodes(total_nodes, self.display_width, self.display_detail_level)
             last_dist = 0
             last_skip = 0
-            for coords in self.map_scaled:
-                if coords[0] > last_dist and last_skip >= skip_node:
+            for index, coords in enumerate(self.map_scaled):
+                if index == 0:
+                    map_path.lineTo(0, sf_y_average)
+                elif index >= total_nodes:  # don't skip last node
+                    map_path.lineTo(self.display_width, sf_y_average)
+                elif coords[0] > last_dist and last_skip >= skip_node:
                     map_path.lineTo(*coords)
                     last_skip = 0
-                last_dist = coords[0]
+                    last_dist = coords[0]
                 last_skip += 1
-
-            if skipped_last_node:  # set last node if skipped
-                map_path.lineTo(*self.map_scaled[-1])
 
             # Set boundary end node
             map_path.lineTo(self.display_width + 999, self.map_scaled[1][1])  # 2nd node y pos
@@ -315,18 +321,3 @@ class Realtime(Overlay):
             # scale * (0pos - min_range)
             zero_elevation = self.map_scale[1] * -self.map_range[2]
             painter.drawLine(0, zero_elevation, self.display_width, zero_elevation)
-
-    # Additional methods
-    def format_elevation(self, meter):
-        """Format elevation"""
-        if self.cfg.units["distance_unit"] == "Feet":
-            return f"{calc.meter2feet(meter):.1f}ft"
-        return f"{meter:.1f}m"
-
-    def format_scale(self, scale):
-        """Format elevation scale (meter or feet per pixel)"""
-        if scale == 0:
-            return "1:1"
-        if self.cfg.units["distance_unit"] == "Feet":
-            return f"1:{round(calc.meter2feet(1 / scale), 2)}"
-        return f"1:{round(1 / scale, 2)}"

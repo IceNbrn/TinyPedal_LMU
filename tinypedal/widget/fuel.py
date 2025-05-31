@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,6 +22,7 @@ Fuel Widget
 
 from .. import calculation as calc
 from ..module_info import minfo
+from ..units import set_unit_fuel
 from ._base import Overlay
 from ._painter import FuelLevelBar
 
@@ -44,6 +45,9 @@ class Realtime(Overlay):
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         self.bar_width = max(self.wcfg["bar_width"], 3)
         style_width = font_m.width * self.bar_width + bar_padx
+
+        # Config units
+        self.unit_fuel = set_unit_fuel(self.cfg.units["fuel_unit"])
 
         # Base style
         self.setStyleSheet(self.set_qss(
@@ -265,27 +269,27 @@ class Realtime(Overlay):
             is_low_fuel = minfo.fuel.estimatedLaps <= self.wcfg["low_fuel_lap_threshold"]
 
             # Estimated end remaining
-            amount_end = self.fuel_units(minfo.fuel.amountEndStint)
+            amount_end = self.unit_fuel(minfo.fuel.amountEndStint)
             self.update_fuel(self.bar_end, amount_end)
 
             # Remaining
-            amount_curr = self.fuel_units(minfo.fuel.amountCurrent)
+            amount_curr = self.unit_fuel(minfo.fuel.amountCurrent)
             self.update_fuel(self.bar_curr, amount_curr, self.bar_style_curr[is_low_fuel])
 
             # Total needed
             if self.wcfg["show_absolute_refueling"]:
-                amount_need = calc.sym_max(self.fuel_units(minfo.fuel.neededAbsolute), 9999)
+                amount_need = calc.sym_max(self.unit_fuel(minfo.fuel.neededAbsolute), 9999)
                 self.update_fuel(self.bar_need, amount_need, self.bar_style_need[is_low_fuel])
             else:
-                amount_need = calc.sym_max(self.fuel_units(minfo.fuel.neededRelative), 9999)
+                amount_need = calc.sym_max(self.unit_fuel(minfo.fuel.neededRelative), 9999)
                 self.update_fuel(self.bar_need, amount_need, self.bar_style_need[is_low_fuel], "+")
 
             # Estimated consumption
-            used_last = self.fuel_units(minfo.fuel.estimatedConsumption)
+            used_last = self.unit_fuel(minfo.fuel.estimatedConsumption)
             self.update_fuel(self.bar_used, used_last)
 
             # Delta consumption
-            delta_fuel = self.fuel_units(minfo.fuel.deltaConsumption)
+            delta_fuel = self.unit_fuel(minfo.fuel.deltaConsumption)
             self.update_fuel(self.bar_delta, delta_fuel, None, "+")
 
             # Estimate pit stop counts when pitting at end of current lap
@@ -301,7 +305,7 @@ class Realtime(Overlay):
             self.update_fuel(self.bar_mins, est_runmins)
 
             # Estimated one less pit consumption
-            fuel_save = calc.zero_max(self.fuel_units(minfo.fuel.oneLessPitConsumption), 99.99)
+            fuel_save = calc.zero_max(self.unit_fuel(minfo.fuel.oneLessPitConsumption), 99.99)
             self.update_fuel(self.bar_save, fuel_save)
 
             # Estimate pit stop counts when pitting at end of current stint
@@ -314,7 +318,7 @@ class Realtime(Overlay):
                 level_curr = minfo.fuel.amountCurrent
                 level_start = minfo.fuel.amountStart
                 level_refill = level_curr + minfo.fuel.neededRelative
-                level_state = round(level_start * level_refill, 3)
+                level_state = round(level_curr + level_start + level_refill, 3)
                 if level_capacity and self.bar_level.last != level_state:
                     self.bar_level.last = level_state
                     self.bar_level.update_input(
@@ -332,10 +336,3 @@ class Realtime(Overlay):
             target.setText(text)
             if color:  # low fuel warning
                 target.setStyleSheet(color)
-
-    # Additional methods
-    def fuel_units(self, fuel):
-        """2 different fuel unit conversion, default is Liter"""
-        if self.cfg.units["fuel_unit"] == "Gallon":
-            return calc.liter2gallon(fuel)
-        return fuel

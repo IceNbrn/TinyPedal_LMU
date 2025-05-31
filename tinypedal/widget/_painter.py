@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,11 +22,21 @@ Overlay base painter class.
 
 from __future__ import annotations
 
-from PySide2.QtCore import Qt, QRectF
-from PySide2.QtGui import QPainter, QPen
+from PySide2.QtCore import QRectF, Qt
+from PySide2.QtGui import QFont, QPainter, QPen, QPixmap
 from PySide2.QtWidgets import QWidget
 
-from ..formatter import select_gear
+from ..const_common import GEAR_SEQUENCE
+
+
+def split_pixmap_icon(
+    pixmap_icon: QPixmap, icon_size: int, h_offset: int = 0, v_offset: int = 0) -> QPixmap:
+    """Split pixmap icon set"""
+    pixmap = QPixmap(icon_size, icon_size)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    painter.drawPixmap(0, 0, pixmap_icon, icon_size * h_offset, icon_size * v_offset, 0, 0)
+    return pixmap
 
 
 class WheelGaugeBar(QWidget):
@@ -43,6 +53,8 @@ class WheelGaugeBar(QWidget):
         input_color: str = "",
         fg_color: str = "",
         bg_color: str = "",
+        mark_width: int = 0,
+        mark_color: str = "",
         right_side: bool = False,
     ):
         super().__init__(parent)
@@ -51,10 +63,16 @@ class WheelGaugeBar(QWidget):
         self.width_scale = bar_width / self.max_range
         self.input_color = input_color
         self.bg_color = bg_color
+        self.mark_color = mark_color
         self.rect_bg = QRectF(0, 0, bar_width, bar_height)
-        self.rect_input = self.rect_bg.adjusted(0,0,0,0)
+        self.rect_input = self.rect_bg.adjusted(0, 0, 0, 0)
         self.rect_text = self.rect_bg.adjusted(padding_x, font_offset, -padding_x, 0)
         self.right_side = right_side
+
+        if self.mark_color:
+            self.rect_mark = QRectF(0, 0, mark_width, bar_height)
+        else:
+            self.rect_mark = self.rect_bg
 
         if right_side:
             self.align = Qt.AlignRight | Qt.AlignVCenter
@@ -73,11 +91,23 @@ class WheelGaugeBar(QWidget):
             self.rect_input.setX((self.max_range - input_value) * self.width_scale)
         self.update()
 
+    def update_input_mark(self, input_value: float, mark_value: float):
+        """Update input value & mark"""
+        if self.right_side:
+            self.rect_input.setWidth(input_value * self.width_scale)
+            self.rect_mark.moveRight(mark_value * self.width_scale)
+        else:
+            self.rect_input.setX((self.max_range - input_value) * self.width_scale)
+            self.rect_mark.moveLeft((self.max_range - mark_value) * self.width_scale)
+        self.update()
+
     def paintEvent(self, event):
         """Draw normal without warning or negative highlighting"""
         painter = QPainter(self)
         painter.fillRect(self.rect_bg, self.bg_color)
         painter.fillRect(self.rect_input, self.input_color)
+        if self.mark_color:
+            painter.fillRect(self.rect_mark, self.mark_color)
         painter.setPen(self.pen)
         painter.drawText(self.rect_text, self.align, f"{self.last:.0f}")
 
@@ -90,11 +120,11 @@ class PedalInputBar(QWidget):
         parent,
         pedal_length: int,
         pedal_extend: int,
-        pedal_size: tuple,
-        raw_size: tuple,
-        filtered_size: tuple,
-        max_size: tuple,
-        reading_size: tuple,
+        pedal_size: tuple[int, int, int, int],
+        raw_size: tuple[int, int, int, int],
+        filtered_size: tuple[int, int, int, int],
+        max_size: tuple[int, int, int, int],
+        reading_size: tuple[int, int, int, int],
         fg_color: str = "",
         bg_color: str = "",
         input_color: str = "",
@@ -174,22 +204,40 @@ class ProgressBar(QWidget):
         parent,
         width: int,
         height: int,
+        offset_x: int,
+        offset_y: int,
+        font: QFont,
         input_color: str = "",
+        fg_color: str = "",
         bg_color: str = "",
+        decimals: int = 0,
+        show_reading: bool = False,
+        align: Qt.Alignment = Qt.AlignCenter,
         right_side: bool = False,
     ):
         super().__init__(parent)
         self.last = -1
+        self.input_reading = 0.0
+        if show_reading:
+            height = max(font.pixelSize(), height)
+            self.setFont(font)
         self.bar_width = width
         self.rect_bar = QRectF(0, 0, width, height)
         self.rect_input = QRectF(0, 0, width, height)
+        self.rect_text = QRectF(width * (offset_x - 0.5), offset_y, width, height)
         self.input_color = input_color
         self.bg_color = bg_color
+        self.show_reading = show_reading
+        self.align = align
         self.right_side = right_side
+        self.pen = QPen()
+        self.pen.setColor(fg_color)
+        self.decimals = max(decimals, 0)
         self.setFixedSize(width, height)
 
-    def update_input(self, input_value: float):
+    def update_input(self, input_value: float, input_reading: float):
         """Update input"""
+        self.input_reading = input_reading
         if self.right_side:
             self.rect_input.setLeft(self.bar_width - input_value * self.bar_width)
         else:
@@ -201,6 +249,9 @@ class ProgressBar(QWidget):
         painter = QPainter(self)
         painter.fillRect(self.rect_bar, self.bg_color)
         painter.fillRect(self.rect_input, self.input_color)
+        if self.show_reading:
+            painter.setPen(self.pen)
+            painter.drawText(self.rect_text, self.align, f"{self.input_reading:.{self.decimals}f}")
 
 
 class FuelLevelBar(QWidget):
@@ -261,16 +312,16 @@ class GearGaugeBar(QWidget):
         parent,
         width: int,
         height: int,
-        font_speed,
-        gear_size: tuple,
-        speed_size: tuple,
+        font_speed: QFont,
+        gear_size: tuple[int, int, int, int],
+        speed_size: tuple[int, int, int, int],
         fg_color: str,
         bg_color: str,
         show_speed: bool = True,
     ):
         super().__init__(parent)
         self.last = -1
-        self.gear = 0
+        self.gear = "N"
         self.speed = 0
         self.color_index = 0
         self.show_speed = show_speed
@@ -286,7 +337,7 @@ class GearGaugeBar(QWidget):
 
     def update_input(self, gear: int, speed: int, color_index: int, bg_color: str):
         """Update input"""
-        self.gear = gear
+        self.gear = GEAR_SEQUENCE(gear, "N")
         self.speed = speed
         self.color_index = color_index
         self.bg_color = bg_color
@@ -299,7 +350,7 @@ class GearGaugeBar(QWidget):
         if self.color_index == -4:  # flicker trigger
             return
         painter.setPen(self.pen)
-        painter.drawText(self.rect_gear, Qt.AlignCenter, select_gear(self.gear))
+        painter.drawText(self.rect_gear, Qt.AlignCenter, self.gear)
         if self.show_speed:
             painter.setFont(self.font_speed)
             painter.drawText(self.rect_speed, Qt.AlignCenter, f"{self.speed:03.0f}")

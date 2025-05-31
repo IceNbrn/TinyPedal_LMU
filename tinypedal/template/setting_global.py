@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -27,8 +27,9 @@ GLOBAL_DEFAULT = {
         "minimize_to_tray": True,
         "remember_position": True,
         "remember_size": True,
-        "show_confirmation_for_batch_toggle": True,
+        "enable_high_dpi_scaling": False,
         "enable_auto_load_preset": False,
+        "show_confirmation_for_batch_toggle": True,
         "grid_move_size": 8,
         "minimum_update_interval": 10,
         "maximum_saving_attempts": 10,
@@ -36,11 +37,13 @@ GLOBAL_DEFAULT = {
         "position_y": 0,
         "window_width": 0,
         "window_height": 0,
+        "window_color_theme": "Dark",
     },
     "compatibility": {
         "enable_bypass_window_manager": False,
         "enable_translucent_background": True,
         "enable_window_position_correction": True,
+        "enable_x11_platform_plugin_override": False,
         "global_bkg_color": "#000000",
         "multimedia_plugin_on_windows": "WMF",
     },

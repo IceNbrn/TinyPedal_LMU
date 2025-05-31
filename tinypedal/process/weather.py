@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -17,17 +17,18 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Weather function
+Weather forecast function
 """
 
 from __future__ import annotations
-from .module_info import WeatherNode
+
 from functools import lru_cache
 
-MAX_MINUTES = 9999.0
-MIN_TEMPERATURE = -273.0
-DEFAULT = [WeatherNode(MAX_MINUTES, -1, MIN_TEMPERATURE, -1)]
-RF2_FORECAST_NODES = ("START", "NODE_25", "NODE_50", "NODE_75", "FINISH")
+from ..const_common import ABS_ZERO_CELSIUS, MAX_FORECAST_MINUTES
+from ..module_info import WeatherNode, minfo
+
+FORECAST_DEFAULT = [WeatherNode(MAX_FORECAST_MINUTES, -1, ABS_ZERO_CELSIUS, -1)]
+FORECAST_NODES_RF2 = ("START", "NODE_25", "NODE_50", "NODE_75", "FINISH")
 
 
 def forecast_rf2(data: dict) -> list[WeatherNode]:
@@ -40,21 +41,28 @@ def forecast_rf2(data: dict) -> list[WeatherNode]:
                 round(data[node]["WNV_TEMPERATURE"]["currentValue"]),
                 round(data[node]["WNV_RAIN_CHANCE"]["currentValue"]),
             )
-            for index, node in enumerate(RF2_FORECAST_NODES)
+            for index, node in enumerate(FORECAST_NODES_RF2)
         ]
     except (KeyError, TypeError):
-        output = DEFAULT
+        output = FORECAST_DEFAULT
     return output
 
 
-def forecast_time_progress(
-    session_percent: float, session_length: float, elapsed_time: float) -> float:
-    """Forecast estimated time progress"""
-    return session_percent * session_length - elapsed_time
+def get_forecast_info(session_type: int) -> list[WeatherNode]:
+    """Get forecast nodes list"""
+    if session_type <= 1:  # practice session
+        info = minfo.restapi.forecastPractice
+    elif session_type == 2:  # qualify session
+        info = minfo.restapi.forecastQualify
+    else:
+        info = minfo.restapi.forecastRace  # race session
+    if info:
+        return info
+    return FORECAST_DEFAULT  # get default if no valid data
 
 
 @lru_cache(maxsize=2)
-def sky_type_correction(sky_type: int, raininess: float) -> int:
+def forecast_sky_type(sky_type: int, raininess: float) -> int:
     """Correct current sky type index based on current raininess
 
     Rain percent:

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,8 +21,8 @@ Wheel alignment Widget
 """
 
 from .. import calculation as calc
-from ..regex_pattern import TEXT_NOTAVAILABLE
 from ..api_control import api
+from ..const_common import TEXT_NA
 from ._base import Overlay
 
 
@@ -63,7 +63,7 @@ class Realtime(Overlay):
                 bg_color=self.wcfg["bkg_color_camber"]
             )
             self.bars_camber = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=bar_style_camber,
                 width=bar_width,
                 count=4,
@@ -93,7 +93,7 @@ class Realtime(Overlay):
                 bg_color=self.wcfg["bkg_color_toe_in"]
             )
             self.bars_toein = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=bar_style_toein,
                 width=bar_width,
                 count=4,
@@ -121,17 +121,15 @@ class Realtime(Overlay):
 
             # Camber
             if self.wcfg["show_camber"]:
-                camber = api.read.wheel.camber()
-                for idx, bar_camber in enumerate(self.bars_camber):
-                    camber[idx] = round(calc.rad2deg(camber[idx]), 2)
-                    self.update_wheel(bar_camber, camber[idx])
+                camber_set = api.read.wheel.camber()
+                for camber, bar_camber in zip(camber_set, self.bars_camber):
+                    self.update_wheel(bar_camber, round(calc.rad2deg(camber), 2))
 
             # Toe in
             if self.wcfg["show_toe_in"]:
-                toein = api.read.wheel.toe_symmetric()
-                for idx, bar_toein in enumerate(self.bars_toein):
-                    toein[idx] = round(calc.rad2deg(toein[idx]), 2)
-                    self.update_wheel(bar_toein, toein[idx])
+                toein_set = api.read.wheel.toe_symmetric()
+                for toein, bar_toein in zip(toein_set, self.bars_toein):
+                    self.update_wheel(bar_toein, round(calc.rad2deg(toein), 2))
 
     # GUI update methods
     def update_wheel(self, target, data):

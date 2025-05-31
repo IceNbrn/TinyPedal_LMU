@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,41 +22,31 @@ Track & pace notes editor
 
 import os
 
-from PySide2.QtCore import Qt, QPoint
+from PySide2.QtCore import QPoint, Qt
 from PySide2.QtWidgets import (
+    QFileDialog,
+    QFrame,
     QGridLayout,
-    QVBoxLayout,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
-    QDialogButtonBox,
+    QMenu,
+    QMessageBox,
     QPushButton,
+    QSplitter,
+    QStatusBar,
     QTableWidget,
     QTableWidgetItem,
-    QMessageBox,
-    QFileDialog,
-    QHeaderView,
-    QMenu,
-    QAction,
-    QStatusBar,
-    QFrame,
-    QSplitter,
+    QVBoxLayout,
 )
 
-from ..setting import cfg
 from ..api_control import api
-from ._common import (
-    BaseDialog,
-    BaseEditor,
-    BatchOffset,
-    TableBatchReplace,
-    QTableFloatItem,
-    QVAL_FILENAME,
-    QSS_EDITOR_BUTTON,
-)
-from .track_map_viewer import MapView
-from .. import formatter as fmt
+from ..formatter import strip_invalid_char
+from ..setting import cfg
 from ..userfile.track_notes import (
+    NOTESTYPE_PACE,
+    NOTESTYPE_TRACK,
     create_notes_metadata,
     load_notes_file,
     save_notes_file,
@@ -64,9 +54,18 @@ from ..userfile.track_notes import (
     set_notes_header,
     set_notes_parser,
     set_notes_writer,
-    NOTESTYPE_PACE,
-    NOTESTYPE_TRACK,
 )
+from ._common import (
+    QVAL_FILENAME,
+    BaseDialog,
+    BaseEditor,
+    BatchOffset,
+    CompactButton,
+    FloatTableItem,
+    TableBatchReplace,
+    UIScaler,
+)
+from .track_map_viewer import MapView
 
 DECIMALS = 2
 
@@ -112,7 +111,7 @@ class TrackNotesEditor(BaseEditor):
 
         # Set layout
         layout_main = QVBoxLayout()
-        layout_main.setContentsMargins(5,5,5,0)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, 0)
         layout_main.addWidget(splitter, stretch=1)
         layout_main.addWidget(self.status_bar)
         self.setLayout(layout_main)
@@ -133,7 +132,7 @@ class TrackNotesEditor(BaseEditor):
 
         layout_map_wrap = QVBoxLayout()
         layout_map_wrap.addWidget(self.trackmap)
-        layout_map_wrap.setContentsMargins(0,0,0,0)
+        layout_map_wrap.setContentsMargins(0, 0, 0, 0)
 
         frame_trackmap = QFrame(self)
         frame_trackmap.setLayout(layout_map_wrap)
@@ -143,10 +142,10 @@ class TrackNotesEditor(BaseEditor):
         layout_trackmap.addLayout(self.trackmap.set_button_layout())
         layout_trackmap.addWidget(frame_trackmap)
         layout_trackmap.addLayout(self.trackmap.set_control_layout())
-        layout_trackmap.setContentsMargins(0,0,0,0)
+        layout_trackmap.setContentsMargins(0, 0, 0, 0)
 
         trackmap_panel = QFrame(self)
-        trackmap_panel.setMinimumSize(500, 500)
+        trackmap_panel.setMinimumSize(UIScaler.size(38), UIScaler.size(38))
         trackmap_panel.setLayout(layout_trackmap)
         return trackmap_panel
 
@@ -169,83 +168,64 @@ class TrackNotesEditor(BaseEditor):
         # File menu
         file_menu = QMenu(self)
 
-        open_pacenotes = QAction("Open Pace Notes", self)
+        open_pacenotes = file_menu.addAction("Open Pace Notes")
         open_pacenotes.triggered.connect(self.load_pacenotes_file)
-        file_menu.addAction(open_pacenotes)
 
-        open_tracknotes = QAction("Open Track Notes", self)
+        open_tracknotes = file_menu.addAction("Open Track Notes")
         open_tracknotes.triggered.connect(self.load_tracknotes_file)
-        file_menu.addAction(open_tracknotes)
-
         file_menu.addSeparator()
 
-        create_pacenotes = QAction("New Pace Notes", self)
+        create_pacenotes = file_menu.addAction("New Pace Notes")
         create_pacenotes.triggered.connect(self.create_pacenotes)
-        file_menu.addAction(create_pacenotes)
 
-        create_tracknotes = QAction("New Track Notes", self)
+        create_tracknotes = file_menu.addAction("New Track Notes")
         create_tracknotes.triggered.connect(self.create_tracknotes)
-        file_menu.addAction(create_tracknotes)
 
-        button_file = QPushButton("File")
-        button_file.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_file = CompactButton("File", has_menu=True)
         button_file.setMenu(file_menu)
 
         # Set position menu
         setpos_menu = QMenu(self)
 
-        setpos_frommap = QAction("From Map", self)
+        setpos_frommap = setpos_menu.addAction("From Map")
         setpos_frommap.triggered.connect(self.set_position_from_map)
-        setpos_menu.addAction(setpos_frommap)
 
-        setpos_fromtele = QAction("From Telemetry", self)
+        setpos_fromtele = setpos_menu.addAction("From Telemetry")
         setpos_fromtele.triggered.connect(self.set_position_from_tele)
-        setpos_menu.addAction(setpos_fromtele)
 
-        button_setpos = QPushButton("Set Pos")
-        button_setpos.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_setpos = CompactButton("Set Pos", has_menu=True)
         button_setpos.setMenu(setpos_menu)
 
         # Button
-        self.button_showmap = QPushButton("Hide Map")
+        self.button_showmap = CompactButton("Hide Map")
         self.button_showmap.clicked.connect(self.toggle_trackmap_panel)
-        self.button_showmap.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_add = QPushButton("Add")
+        button_add = CompactButton("Add")
         button_add.clicked.connect(self.add_notes)
-        button_add.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_insert = QPushButton("Insert")
+        button_insert = CompactButton("Insert")
         button_insert.clicked.connect(self.insert_notes)
-        button_insert.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_sort = QPushButton("Sort")
+        button_sort = CompactButton("Sort")
         button_sort.clicked.connect(self.sort_notes)
-        button_sort.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_delete = QPushButton("Delete")
+        button_delete = CompactButton("Delete")
         button_delete.clicked.connect(self.delete_notes)
-        button_delete.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_replace = QPushButton("Replace")
+        button_replace = CompactButton("Replace")
         button_replace.clicked.connect(self.open_replace_dialog)
-        button_replace.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_offset = QPushButton("Offset")
+        button_offset = CompactButton("Offset")
         button_offset.clicked.connect(self.open_offset_dialog)
-        button_offset.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_metadata = QPushButton("Info")
+        button_metadata = CompactButton("Info")
         button_metadata.clicked.connect(self.open_metadata_dialog)
-        button_metadata.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_save = QDialogButtonBox(QDialogButtonBox.Save)
-        button_save.accepted.connect(self.saving)
-        button_save.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_save = CompactButton("Save")
+        button_save.clicked.connect(self.saving)
 
-        button_close = QDialogButtonBox(QDialogButtonBox.Close)
-        button_close.rejected.connect(self.close)
-        button_close.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.close)
 
         layout_top = QHBoxLayout()
         layout_top.addWidget(self.button_showmap)
@@ -269,10 +249,10 @@ class TrackNotesEditor(BaseEditor):
         layout_editor.addLayout(layout_top)
         layout_editor.addWidget(self.table_notes)
         layout_editor.addLayout(layout_button)
-        layout_editor.setContentsMargins(0,0,0,0)
+        layout_editor.setContentsMargins(0, 0, 0, 0)
 
         editor_panel = QFrame(self)
-        editor_panel.setMinimumSize(500, 500)
+        editor_panel.setMinimumSize(UIScaler.size(38), UIScaler.size(38))
         editor_panel.setLayout(layout_editor)
         return editor_panel
 
@@ -351,23 +331,22 @@ class TrackNotesEditor(BaseEditor):
 
     def refresh_table(self):
         """Refresh notes table"""
-        self.table_notes.clear()
-        self.table_notes.setRowCount(len(self.notes_temp))
+        self.table_notes.setRowCount(0)
         self.table_notes.setColumnCount(len(self.notes_header))
         self.table_notes.setHorizontalHeaderLabels(self.notes_header)
-        self.table_notes.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.table_notes.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+        self.table_notes.setColumnWidth(0, UIScaler.size(6))
 
         self._verify_enabled = False
-        row_index = 0
-        for note_line in self.notes_temp:
+        for row_index, note_line in enumerate(self.notes_temp):
+            self.table_notes.insertRow(row_index)
             for column_index, fieldname in enumerate(self.notes_header):
                 value = note_line[fieldname]
                 if column_index == 0:
-                    item = QTableFloatItem(round(value, DECIMALS))
+                    item = FloatTableItem(round(value, DECIMALS))
                 else:
                     item = QTableWidgetItem(value)
                 self.table_notes.setItem(row_index, column_index, item)
-            row_index += 1
         self._verify_enabled = True
 
     def open_replace_dialog(self):
@@ -554,7 +533,7 @@ class TrackNotesEditor(BaseEditor):
                 self.mark_positions_on_map()
             elif column_index == 1 and self.notes_type == NOTESTYPE_PACE:
                 # Remove invalid char (filename) from pace note column
-                item.setText(fmt.strip_invalid_char(item.text()))
+                item.setText(strip_invalid_char(item.text()))
 
     def set_context_menu(self):
         """Set context menu"""
@@ -625,7 +604,7 @@ class TrackNotesEditor(BaseEditor):
         self.table_notes.setCurrentCell(row_index, 0)
         for column_index in range(column_count):
             if column_index == 0:
-                item = QTableFloatItem(0)
+                item = FloatTableItem(0)
             else:
                 item = QTableWidgetItem("")
             self.table_notes.setItem(row_index, column_index, item)
@@ -654,15 +633,15 @@ class MetaDataEditor(BaseDialog):
             self.option_metadata[fieldname] = edit_entry
 
         # Button
-        button_save = QDialogButtonBox(QDialogButtonBox.Ok)
-        button_save.accepted.connect(self.saving)
+        button_save = QPushButton("Ok")
+        button_save.clicked.connect(self.saving)
 
-        button_close = QDialogButtonBox(QDialogButtonBox.Close)
-        button_close.rejected.connect(self.reject)
+        button_close = QPushButton("Close")
+        button_close.clicked.connect(self.reject)
 
         layout_button = QHBoxLayout()
-        layout_button.addWidget(button_save)
         layout_button.addStretch(1)
+        layout_button.addWidget(button_save)
         layout_button.addWidget(button_close)
 
         # Set layout
@@ -670,12 +649,10 @@ class MetaDataEditor(BaseDialog):
         layout_main.addLayout(layout_option)
         layout_main.addLayout(layout_button)
         self.setLayout(layout_main)
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(UIScaler.size(38))
         self.setFixedHeight(self.sizeHint().height())
 
     def saving(self):
         """Save metadata"""
-        self.metadata.update(
-            {key:edit.text() for key, edit in self.option_metadata.items()}
-        )
+        self.metadata.update({key:edit.text() for key, edit in self.option_metadata.items()})
         self.accept()

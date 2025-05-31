@@ -14,14 +14,26 @@ TinyPedal requires The Iron Wolf’s `rF2 Shared Memory Map Plugin` from `Downlo
 https://github.com/TheIronWolfModding/rF2SharedMemoryMapPlugin
 
 The plugin file `rFactor2SharedMemoryMapPlugin64.dll` should be placed in:
+
 1. For `rFactor 2`, it is `rFactor 2\Bin64\Plugins` folder.
+
 2. For `Le Mans Ultimate`, it is `Le Mans Ultimate\Plugins` folder.
 
 This plugin also comes with some of the popular rF2/LMU Apps, check corresponding game's plugins folder first to see if it was installed already.
 
 In-game setup:
-1. Enabled `rFactor2SharedMemoryMapPlugin64` plugin in game option. For `Le Mans Ultimate`, user may have to manually enable plugin by editing `CustomPluginVariables.JSON` file (set `" Enabled"` value to `1` ) under `Le Mans Ultimate\UserData\player` folder. After plugin enabled, must restart game to take effect.
-2. Set game display mode to `Borderless` or `Windowed` mode. `Fullscreen` mode is not supported.
+
+1. Set game display mode to `Borderless` or `Windowed` mode. `Fullscreen` mode is not supported.
+
+2. Enable shared memory map plugin:
+
+    For `rFactor 2`, in game `Settings` -> `Gameplay` page, find `Plugins` section and toggle on `rFactor2SharedMemoryMapPlugin64.dll`.
+
+    For `Le Mans Ultimate`, user may have to manually enable plugin by editing `CustomPluginVariables.JSON` file (set `" Enabled"` value to `1` ) under `Le Mans Ultimate\UserData\player` folder.
+
+    After plugin enabled, must `restart game` to take effect.
+
+    Note, if game cannot generate `rFactor2SharedMemoryMapPlugin64.dll` entry in `CustomPluginVariables.JSON` file, make sure `VC12 (Visual C++ 2013) runtime` is installed, which can be found in game's `Support\Runtimes` folder.
 
 ## Quick Start
 1. Download latest TinyPedal version from [Releases](https://github.com/s-victor/TinyPedal/releases) page, extract it into a clean folder, and run `tinypedal.exe`.  
@@ -83,7 +95,7 @@ Note: the build script only supports py2exe `v0.12.0.0` or higher.
 
 ## Running on Linux
 
-The procedure described in the **Run from source** section is mostly valid,
+The procedure described in the [Run from source](#run-from-source) section is mostly valid,
 except some differences in the dependencies, and that no executable can be
 built. The differences are explained here.
 
@@ -129,14 +141,14 @@ You can run the script as (it doesn't support any arguments or options):
 
 ### Known issues
 
-- Widgets don't appear over the game window in KDE. Workaround: enable
-  bypassing the window manager in the menu Config -> Compatibility.
-- Transparency of widgets doesn't work when desktop compositing is disabled.
-  Workaround: enable window manager compositing in your DE.
+- Widgets don't appear over the game window in KDE. Workaround: enable `Bypass Window Manager` option in `Compatibility` dialog from `Config` menu in main window.
+- Transparency of widgets doesn't work when desktop compositing is disabled. Workaround: enable `window manager compositing` in your DE.
 
 ## License
 
-TinyPedal is licensed under the GNU General Public License v3.0 or later. See [LICENSE.txt](./LICENSE.txt) for full text.
+Copyright (C) 2022-2025 TinyPedal developers
+
+TinyPedal is free software and licensed under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. TinyPedal is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY. See [LICENSE.txt](./LICENSE.txt) for more info.
 
 TinyPedal icon, as well as image files located in `images` folder, are licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
@@ -144,4 +156,4 @@ Licenses and notices file for third-party software are located in `docs\licenses
 
 ## Credits
 
-See [docs\contributors.md](./docs/contributors.md) file for full list of contributors.
+See [docs\contributors.md](./docs/contributors.md) file for full list of developers and contributors.

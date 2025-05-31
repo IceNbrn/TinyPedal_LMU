@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,10 +22,10 @@ Flag Widget
 
 from .. import calculation as calc
 from ..api_control import api
+from ..const_common import MAX_SECONDS
 from ..module_info import minfo
+from ..units import set_symbol_distance, set_unit_distance, set_unit_fuel
 from ._base import Overlay
-
-MAGIC_NUM = 99999
 
 
 class Realtime(Overlay):
@@ -44,6 +44,11 @@ class Realtime(Overlay):
         # Config variable
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         bar_width = font_m.width * 7 + bar_padx
+
+        # Config units
+        self.unit_fuel = set_unit_fuel(self.cfg.units["fuel_unit"])
+        self.unit_dist = set_unit_distance(self.cfg.units["distance_unit"])
+        self.symbol_dist = set_symbol_distance(self.cfg.units["distance_unit"])
 
         # Base style
         base_style = self.set_qss(
@@ -242,7 +247,7 @@ class Realtime(Overlay):
             # Pit timer
             if self.wcfg["show_pit_timer"]:
                 if in_pits and api.read.vehicle.in_garage():
-                    pitting_state = MAGIC_NUM
+                    pitting_state = MAX_SECONDS
                 else:
                     pitting_state = self.pit_timer.update(in_pits, lap_etime)
                 self.update_pit_timer(self.bar_pit_timer, pitting_state)
@@ -300,7 +305,7 @@ class Realtime(Overlay):
         """Pit timer"""
         if target.last != data:
             target.last = data
-            if data != MAGIC_NUM:
+            if data != MAX_SECONDS:
                 if data < 0:  # finished pits
                     color = self.bar_style_pit_timer[1]
                     state = f"F{-data: >6.2f}"[:7]
@@ -339,7 +344,7 @@ class Realtime(Overlay):
         """Blue flag"""
         if target.last != data:
             target.last = data
-            if data != MAGIC_NUM:
+            if data != MAX_SECONDS:
                 target.setText(f"BLUE{data:3.0f}"[:7])
                 target.show()
             else:
@@ -349,12 +354,9 @@ class Realtime(Overlay):
         """Yellow flag"""
         if target.last != data:
             target.last = data
-            if data != MAGIC_NUM:
-                if self.cfg.units["distance_unit"] == "Feet":
-                    yelw_text = f"Y{data * 3.281: >4.0f}ft"[:7]
-                else:  # meter
-                    yelw_text = f"Y{data: >5.0f}m"[:7]
-                target.setText(yelw_text)
+            if data != MAX_SECONDS:
+                text = f"{self.unit_dist(data): >4.0f}{self.symbol_dist}"
+                target.setText(f"Y{text: >6}"[:7])
                 target.show()
             else:
                 target.hide()
@@ -378,7 +380,7 @@ class Realtime(Overlay):
         """Incoming traffic"""
         if target.last != data:
             target.last = data
-            if data != MAGIC_NUM:
+            if data != MAX_SECONDS:
                 target.setText(f"≥{data: >5.1f}s"[:7])
                 target.show()
             else:
@@ -410,12 +412,6 @@ class Realtime(Overlay):
                 target.hide()
 
     # Additional methods
-    def fuel_units(self, fuel):
-        """2 different fuel unit conversion, default is Liter"""
-        if self.cfg.units["fuel_unit"] == "Gallon":
-            return calc.liter2gallon(fuel)
-        return fuel
-
     def is_lowfuel(self, in_race):
         """Is low fuel"""
         if self.wcfg["show_low_fuel_for_race_only"] and not in_race:
@@ -435,12 +431,12 @@ class Realtime(Overlay):
             return ""  # not low fuel
 
         if prefix == "LF":
-            amount_curr = self.fuel_units(amount_curr)
+            amount_curr = self.unit_fuel(amount_curr)
         return f"{prefix}{amount_curr: >5.2f}"[:7]
 
     def pit_in_countdown(self) -> str:
         """Pit in countdown (laps)"""
-        if api.read.vehicle.pit_state() != 1:
+        if not api.read.vehicle.pit_request():
             return ""
 
         if minfo.restapi.maxVirtualEnergy:
@@ -453,17 +449,23 @@ class Realtime(Overlay):
         est_laps = f"{est_laps:.2f}"[:3].strip(".")
         return f"{safe_laps: <3}≤{est_laps: >3}"
 
-    def yellow_flag_state(self, in_race: bool) -> int:
+    def yellow_flag_state(self, in_race: bool) -> float:
         """Yellow flag state"""
         if not self.wcfg["show_yellow_flag_for_race_only"] or in_race:
+            yellow_dist = minfo.vehicles.nearestYellow
             if (api.read.session.yellow_flag() and
-                minfo.vehicles.nearestYellow < self.wcfg["yellow_flag_maximum_range"]):
-                return round(minfo.vehicles.nearestYellow)
-        return MAGIC_NUM
+                yellow_dist < self.wcfg["yellow_flag_maximum_range"]):
+                return yellow_dist
+        return MAX_SECONDS
 
 
 class GreenFlagTimer:
     """Green flag timer"""
+
+    __slots__ = (
+        "_last_lap_stime",
+        "_green_flag_duration",
+    )
 
     def __init__(self, green_flag_duration: bool):
         self._last_lap_stime = -1
@@ -493,6 +495,14 @@ class GreenFlagTimer:
 class TrafficTimer:
     """Traffic timer"""
 
+    __slots__ = (
+        "_timer_start",
+        "_last_in_pits",
+        "_max_time_gap",
+        "_pitout_duration",
+        "_low_speed_threshold",
+    )
+
     def __init__(self, max_time_gap: bool, pitout_duration: float, low_speed_threshold: float):
         self._timer_start = 0.0
         self._last_in_pits = 0
@@ -500,7 +510,7 @@ class TrafficTimer:
         self._pitout_duration = pitout_duration
         self._low_speed_threshold = low_speed_threshold
 
-    def update(self, in_pits: bool, elapsed_time: float) -> int:
+    def update(self, in_pits: bool, elapsed_time: float) -> float:
         """Check incoming traffic and time gap"""
         if self._last_in_pits > in_pits:
             self._timer_start = elapsed_time
@@ -509,11 +519,12 @@ class TrafficTimer:
         if self._timer_start and elapsed_time - self._timer_start > self._pitout_duration:
             self._timer_start = 0
 
-        if minfo.vehicles.nearestTraffic < self._max_time_gap:
+        traffic_time = minfo.vehicles.nearestTraffic
+        if traffic_time < self._max_time_gap:
             if (api.read.vehicle.speed() < self._low_speed_threshold > 0
                 or in_pits or self._timer_start):
-                return round(minfo.vehicles.nearestTraffic, 1)
-        return MAGIC_NUM
+                return traffic_time
+        return MAX_SECONDS
 
     def reset(self):
         """Reset"""
@@ -524,19 +535,24 @@ class TrafficTimer:
 class BlueFlagTimer:
     """Blue flag timer"""
 
+    __slots__ = (
+        "_timer_start",
+        "_race_only",
+    )
+
     def __init__(self, race_only: bool):
         self._timer_start = 0.0
         self._race_only = race_only
 
-    def update(self, in_race: bool, elapsed_time: float) -> int:
+    def update(self, in_race: bool, elapsed_time: float) -> float:
         """Check blue flag state"""
         if not self._race_only or in_race:
             if api.read.session.blue_flag():
                 if not self._timer_start:
                     self._timer_start = elapsed_time
-                return round(elapsed_time - self._timer_start)
+                return elapsed_time - self._timer_start
             self._timer_start = 0
-        return MAGIC_NUM
+        return MAX_SECONDS
 
     def reset(self):
         """Reset"""
@@ -545,6 +561,13 @@ class BlueFlagTimer:
 
 class PitTimer:
     """Pit timer"""
+
+    __slots__ = (
+        "_timer_start",
+        "_last_in_pits",
+        "_last_pit_time",
+        "_max_duration",
+    )
 
     def __init__(self, highlight_duration: float):
         self._timer_start = 0.0
@@ -559,7 +582,7 @@ class PitTimer:
         self._last_in_pits = in_pits
 
         if not self._timer_start:
-            return MAGIC_NUM
+            return MAX_SECONDS
 
         pit_timer = elapsed_time - self._timer_start
         if in_pits:
@@ -568,7 +591,7 @@ class PitTimer:
             pit_timer = -self._last_pit_time  # set negative for highlighting
         else:
             self._timer_start = 0  # stop timer
-            pit_timer = MAGIC_NUM
+            pit_timer = MAX_SECONDS
         return pit_timer
 
     def reset(self):

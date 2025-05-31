@@ -4,14 +4,24 @@ TinyPedal offers a wide range of customization options for `widget` and `module`
 
 # Global user configuration
 TinyPedal stores global user configuration in `config.json` file, which is used for none-preset specific options.
+
 * For Windows, `config.json` is stored under `username\AppData\Roaming\TinyPedal` folder.
 * For Linux, `config.json` is stored under `home/username/.config/TinyPedal` folder.
 
-Available settings:  
+Available settings:
+
 * `Application`, can be accessed from `Config` menu in main window, see [Application](#application) section for details.
 * `Compatibility`, can be accessed from `Config` menu in main window, see [Compatibility](#compatibility) section for details.
 * `User path`, can be accessed from `Config` menu in main window, see [User Path](#user-path) section for details.
 * `Auto load preset`, can be accessed from `Preset` tab in main window, see [Preset Management](#preset-management) section for details.
+
+Reload or Restart:
+
+* To reload all presets, select `Reload` from `Overlay` menu in main window.
+* To restart game API, select `Restart API` from `Overlay` menu in main window.
+* To restart TinyPedal, select `Restart TinyPedal` from `Window` menu in main window.
+
+[**`Back to Top`**](#)
 
 
 # Preset management
@@ -20,6 +30,14 @@ TinyPedal stores all customization options in `JSON` format preset files, and ca
 All user preset files, by default, are located in `TinyPedal\settings` folder. Those `JSON` files can also be manually edited with text editor.
 
 `Right-Click` on a preset name in `Preset` tab opens up a context menu that provides additional preset file management options:
+
+* Lock Preset  
+    Lock selected preset, which prevents any changes that made through TinyPedal from saving to locked preset file. APP `version` tag will be attached to the preset that is locked with.
+
+    Note, this feature does not prevent user from modifying or deleting locked preset file by other means. Locked preset file info is stored in `config.lock` file in [Global User Configuration](#global-user-configuration) folder.
+
+* Unlock Preset  
+    Unlock selected preset.
 
 * Set primary for *  
     Add `primary sim` tag to selected preset, which will be auto loaded by `Auto load preset` system. Note, a single preset can have tags from multiple games.
@@ -31,14 +49,18 @@ All user preset files, by default, are located in `TinyPedal\settings` folder. T
     Duplicate selected preset with a new name.
 
 * Rename  
-    Rename selected preset with a new name.
+    Rename selected preset with a new name. This option is not available for locked preset.
 
 * Delete  
-    Delete selected preset with confirmation.
+    Delete selected preset with confirmation. This option is not available for locked preset.
+
+[**`Back to Top`**](#)
 
 
 ## Saving JSON file
 TinyPedal automatically saves setting when user makes changes to widget position, or has toggled widget visibility, auto-hide, overlay-lock, etc. Changes will only take effect after `Reload` preset, or clicked `Save` or `Apply` button in `Config` dialog, or `Restart` APP.
+
+[**`Back to Top`**](#)
 
 
 ## Backup JSON file
@@ -46,9 +68,13 @@ TinyPedal will automatically create backup file with time stamp suffix if old se
 
 A newer released version will auto-update old setting and add new setting after loading. It may still be a good idea to manually backup files before upgrading to newer version.
 
+[**`Back to Top`**](#)
+
 
 ## Editing JSON file
 Customization can be done through various configuration dialogs and menus from main window. Manual editing `JSON` file is not recommended.
+
+[**`Back to Top`**](#)
 
 
 ## Brands preset
@@ -58,6 +84,8 @@ Brands preset can be customized by accessing `Vehicle brand editor` from `Tools`
 
 `brands.json` preset will be generated and saved in `TinyPedal\settings` folder after first time launch of the APP.
 
+[**`Back to Top`**](#)
+
 
 ## Classes preset
 **Classes preset is used for customizing class name and color that matches specific vehicle class.**
@@ -65,6 +93,8 @@ Brands preset can be customized by accessing `Vehicle brand editor` from `Tools`
 Classes preset can be customized by accessing `Vehicle class editor` from `Tools` menu in main window. See [Vehicle Class Editor](#vehicle-class-editor) section for complete editing guide.
 
 `classes.json` preset will be generated and saved in `TinyPedal\settings` folder after first time launch of the APP.
+
+[**`Back to Top`**](#)
 
 
 ## Brakes preset
@@ -74,6 +104,8 @@ Brakes preset can be customized by accessing `Brake editor` from `Tools` menu in
 
 `brakes.json` preset will be generated and saved in `TinyPedal\settings` folder after first time launch of the APP.
 
+[**`Back to Top`**](#)
+
 
 ## Compounds preset
 **Compounds preset is used for customizing tyre compound symbol and heatmap style that matches specific tyre compound.**
@@ -81,6 +113,8 @@ Brakes preset can be customized by accessing `Brake editor` from `Tools` menu in
 Compounds preset can be customized by accessing `Tyre compound editor` from `Tools` menu in main window. See [Tyre Compound Editor](#tyre-compound-editor) section for complete editing guide.
 
 `compounds.json` preset will be generated and saved in `TinyPedal\settings` folder after first time launch of the APP.
+
+[**`Back to Top`**](#)
 
 
 ## Heatmap preset
@@ -90,15 +124,33 @@ Heatmap preset can be customized by accessing `Heatmap editor` from `Tools` menu
 
 `heatmap.json` preset will be generated and saved in `TinyPedal\settings` folder after first time launch of the APP.
 
+[**`Back to Top`**](#)
+
+
+## Tracks preset
+**Tracks preset is used for storing and customizing track info for various track-related calculation.**
+
+Tracks preset can be customized by accessing `Track info editor` from `Tools` menu in main window. See [Track Info Editor](#track-info-editor) section for complete editing guide.
+
+Track info recording is handled by [Mapping Module](#mapping-module).
+
+`tracks.json` preset will be generated and saved in `TinyPedal\settings` folder after first time launch of the APP.
+
+[**`Back to Top`**](#)
+
 
 # User files
-TinyPedal generates and saves user session data in specific folders defined in `User path`. Session data can be reset by accessing `Reset data` submenu from `Overlay` menu in main window; or, delete data file from corresponding folder.
+TinyPedal generates and saves user session data in specific folders defined in `User path`. Session data can be reset by accessing `Reset data` menu from `Overlay` menu in main window; or, delete data file from corresponding folder.
+
+[**`Back to Top`**](#)
 
 
 ## Driver stats
-Driver stats data is stored as `JSON` format (.stats extension) under `global user configuration` folder. Driver stats can be viewed with [Driver Stats Viewer](#driver-stats-viewer) from `Tools` menu in main window.
+Driver stats data is stored as `JSON` format (.stats extension) under [Global User Configuration](#global-user-configuration) folder. Driver stats can be viewed with [Driver Stats Viewer](#driver-stats-viewer) from `Tools` menu in main window.
 
 Data recording is handled by [Stats Module](#stats-module).
+
+[**`Back to Top`**](#)
 
 
 ## Delta best
@@ -106,11 +158,15 @@ Delta best data is stored as `CSV` format (.csv extension) under `TinyPedal\delt
 
 Data recording is handled by [Delta Module](#delta-module).
 
+[**`Back to Top`**](#)
+
 
 ## Energy delta
 Energy delta data is stored as `CSV` format (.energy extension) under `TinyPedal\deltabest` folder (default). Those files can be opened in spreadsheet or notepad programs.
 
 Data recording is handled by [Energy Module](#energy-module).
+
+[**`Back to Top`**](#)
 
 
 ## Fuel delta
@@ -118,17 +174,23 @@ Fuel delta data is stored as `CSV` format (.fuel extension) under `TinyPedal\del
 
 Data recording is handled by [Fuel Module](#fuel-module).
 
+[**`Back to Top`**](#)
+
 
 ## Consumption history
 Consumption history data is stored as `CSV` format (.consumption extension) under `TinyPedal\deltabest` folder (default). Those files can be opened in spreadsheet or notepad programs.
 
 Consumption history data stores lap time and fuel consumption data per `track and vehicle class`, which can be loaded in [Fuel Calculator](#fuel-calculator). Up to 100 most recent lap entries are saved per `track and vehicle class`. Data recording is handled by [Fuel Module](#fuel-module).
 
+[**`Back to Top`**](#)
+
 
 ## Sector best
 Sector best data is stored as `CSV` format (.sector extension) under `TinyPedal\deltabest` folder (default). Those files can be opened in spreadsheet or notepad programs.
 
 Data recording is handled by [Sectors Module](#sectors-module).
+
+[**`Back to Top`**](#)
 
 
 ## Track map
@@ -142,13 +204,17 @@ The SVG vector map data contains two coordinate paths:
 
 Each sector position index is also stored in SVG file for finding sector coordinates.
 
+[**`Back to Top`**](#)
+
 
 ## Pace notes
 `TinyPedal Pace Notes` data is stored as `TPPN` format (.tppn extension) under `TinyPedal\pacenotes` folder (default). Pace notes can be created or edited with [Track Notes Editor](#track-notes-editor) from `Tools` menu in main window.
 
-Pace notes data is mainly used for playback pace notes sounds for specific tracks.
+Pace notes data is mainly used for [Pace Notes Playback](#pace-notes-playback) for specific tracks.
 
 To allow `auto notes loading` function to work, pace notes file name must match same track map file name.
+
+[**`Back to Top`**](#)
 
 
 ## Track notes
@@ -157,6 +223,8 @@ To allow `auto notes loading` function to work, pace notes file name must match 
 Track notes data is mainly used for displaying corner and section names for specific tracks, or providing additional info at specific track location while driving.
 
 To allow `auto notes loading` function to work, track notes file name must match same track map file name.
+
+[**`Back to Top`**](#)
 
 
 ## Brand logo
@@ -169,6 +237,8 @@ How to prepare brand logo image:
 2. Make sure image dimension is not too big, usually around 100 pixel width or height is good enough. Bigger dimension may consume more RAM or exceed maximum supported file size.
 3. Save image to `TinyPedal\brandlogo` folder, image filename must match corresponding `brand name` that defined in [Vehicle Brand Editor](#vehicle-brand-editor). For cross-platform compatibility, filename matching is set to be case-sensitive, make sure filename has the same upper or lower case as set in `brand name`.
 4. `Reload` preset to load newly added brand logo images for displaying in overlay.
+
+[**`Back to Top`**](#)
 
 
 # Command line arguments
@@ -187,7 +257,7 @@ Set logging output level. Supported values are:
 
 Log location:
   * On windows, `tinypedal.log` is located under `username\AppData\Roaming\TinyPedal` folder.
-  * On linux, `tinypedal.log` is located under `home/username/.config/TinyPedal` folder.
+  * On Linux, `tinypedal.log` is located under `home/username/.config/TinyPedal` folder.
 
 Default logging output level is set on `1` if argument is not set.
 
@@ -200,9 +270,16 @@ To run multiple copies of TinyPedal at same time: `python .\run.py -s 0` or `.\t
 
 Single instance mode saves `pid.log` file in the same folder as `tinypedal.log`, which is used for instance identification.
 
+    -p, --pyside
+Set PySide (Qt for Python) module version. Set `2` for PySide2 (default). Set `6` for PySide6. Currently, this option is only available while `running from source`, and mainly for testing purpose or used on platform where PySide2 is no longer available.
+
+[**`Back to Top`**](#)
+
 
 # General options
 **General options can be accessed from main window menu.**
+
+[**`Back to Top`**](#)
 
 
 ## Common terms and keywords
@@ -241,11 +318,17 @@ Automatically adjust font vertical offset based on font geometry for better vert
     font_offset_vertical
 Manually set font vertical offset. Default is `0`. Negative value will offset font upward, and position value for downward. This option only takes effect when `enable_auto_font_offset` is set to `false`.
 
+    *_offset_x, *_offset_y
+Set text offset position (percentage), value range in `0.0` to `1.0`.
+
     bar_padding
 Set widget edge padding value that multiplies and scales with `font_size`. Default is `0.2` for most widgets. Increase padding value will further increase each element width in widget.
 
     color
 Set color in hexadecimal color codes with alpha value (opacity). The color code format starts with `#`, then follows by two-digit hexadecimal numbers for each channel in the order of `alpha`, `red`, `green`, `blue`. Note, `alpha` is optional and can be omitted. User can select a new color without manual editing, by double-clicking on color entry box in `Config` dialog.
+
+    text_alignment
+Set text alignment. Acceptable value: `Left`, `Center`, `Right`.
 
     prefix
 Set prefix text that displayed beside corresponding data. Set to `""` to hide prefix text.
@@ -258,6 +341,8 @@ Set order of each info column(or row). Must keep index number unique to each col
 
     decimal_places
 Set amount decimal places to keep.
+
+[**`Back to Top`**](#)
 
 
 ## Application
@@ -275,8 +360,14 @@ Remember main window last position.
     remember_size
 Remember main window last size.
 
-    show_confirmation_for_batch_toggle
-Show confirmation dialog for enabling or disabling all widgets or modules. This option is enabled by default.
+    enable_high_dpi_scaling
+Enable window dialog and overlay widget auto-scaling under high DPI screen resolution. This option requires restarting TinyPedal to take effect. This option is disabled by default.
+
+High DPI scaling mode can be quickly toggled via `Scale` button on main window status bar.
+
+On Windows, scaling is determined by percentage value set in `Display` > `Scale and Layout` setting. For example, `200%` scale in windows setting will double the size of main window dialog and also every widget.
+
+On Linux, DPI scaling may already be forced `ON` in some system, which this option may not have effect.
 
     enable_auto_load_preset
 Enable `Auto load preset` system to allow auto loading user-defined game-specific preset depends on active game (currently supports `RF2` and `LMU`).
@@ -284,6 +375,9 @@ Enable `Auto load preset` system to allow auto loading user-defined game-specifi
 Auto loading preset is triggered when a new or different game is started and active. Auto loading will only trigger once per game change. A preset must be tagged as `primary` for specific game before it can be auto loaded. See [Preset Management](#preset-management) section for details.
 
 This option is disabled by default.
+
+    show_confirmation_for_batch_toggle
+Show confirmation dialog for enabling or disabling all widgets or modules. This option is enabled by default.
 
     grid_move_size
 Set grid size for grid move, value in pixel. Default is `8` pixel. Minimum value is limited to `1`.
@@ -300,18 +394,28 @@ Define main window position on screen in pixels. Those values will be auto updat
     window_width, window_height
 Define main window size on screen in pixels. Those values will be auto updated and saved while `remember_size` option is enabled.
 
+    window_color_theme
+Set color theme for main window and dialog. Default theme is `Dark`. This option does not affect overlay widget.
+
+Color theme can be quickly toggled via `UI` button on main window status bar.
+
+[**`Back to Top`**](#)
+
 
 ## Compatibility
 **Compatibility options can be accessed from `Config` menu in main window.**
 
     enable_bypass_window_manager
-Set `true` to bypass window manager on X11 system, such as linux. This option does not affect windows system. This option is enabled by default on linux. Note, while this option is enabled, OBS may not be able to capture overlay widgets in streaming on linux.
+Set `true` to bypass window manager on Linux. This option does not affect windows system. This option is enabled by default on Linux. Note, while this option is enabled, OBS may not be able to capture overlay widgets in streaming on Linux.
 
     enable_translucent_background
 Set `false` to disable translucent background.
 
     enable_window_position_correction
 Set `true` to enable main application window position correction, which is used to correct window-off-screen issue with multi-screen. This option is enabled by default.
+
+    enable_x11_platform_plugin_override
+Set Qt platform plugin type to `X11` via environment variable on Linux. This option may help work around some issues with overlay dragging and position on `Wayland`. This option requires restarting TinyPedal to take effect. This option is enabled by default on Linux.
 
     global_bkg_color
 Sets global background color for all widgets.
@@ -322,6 +426,8 @@ Note, global background color will only be visible when `enable_translucent_back
 Set multimedia plugin for playing sound file on windows. Default is using `WMF` plugin.
 
 Note, if the option is set on `DirectShow`, additional audio decoder software may be required to play certain sound formats, such as `MP3`. This option requires restarting TinyPedal to take effect.
+
+[**`Back to Top`**](#)
 
 
 ## User path
@@ -350,7 +456,7 @@ To share user path across multiple copies of TinyPedal, user must set path to pl
         pacenotes/
         tracknotes/
 
-* On linux, all user paths are set outside TinyPedal root folder as absolute paths:
+* On Linux, all user paths are set outside TinyPedal root folder as absolute paths:
 
         home/username/.config/TinyPedal/brandlogo/
         home/username/.config/TinyPedal/settings/
@@ -358,6 +464,8 @@ To share user path across multiple copies of TinyPedal, user must set path to pl
         home/username/.config/TinyPedal/tracknotes/
         home/username/.local/share/TinyPedal/deltabest/
         home/username/.local/share/TinyPedal/trackmap/
+
+[**`Back to Top`**](#)
 
 
 ## Overlay
@@ -374,6 +482,10 @@ Enable grid-snap effect while moving widget for easy alignment and repositioning
 
     vr_compatibility
 Enable widget visibility as windows on taskbar in order to be used in VR via APPs such as `OpenKneeboard`. Non-VR user should not enable this option.
+
+Note, you will still need a third party program (such as `OpenKneeboard`) to project overlay windows (widgets) into VR.
+
+[**`Back to Top`**](#)
 
 
 ## Shared memory API
@@ -394,7 +506,7 @@ Set access mode for API. Mode value `0` uses copy access and additional data che
 Set process ID string for accessing API from server. Currently this option is only relevant to `RF2`.
 
     enable_active_state_override
-Set `true` to enable `active state` manual override. While enabled, `state overriding` notification will be shown on API status bar from main window.
+Set `true` to enable `active state` manual override. While enabled, `overriding` notification will be shown on API status bar from main window.
 
     active_state
 This option overrides local player on-track status check, and updates or stops overlay and data processing accordingly. Set `true` to activate state. Set `false` to deactivate state. This option works only when `enable_active_state_override` enabled.
@@ -408,9 +520,11 @@ Set `player index` override for displaying data from specific player. Valid play
     character_encoding
 Set character encoding for displaying text in correct encoding. Available encoding: `UTF-8`, `ISO-8859-1`. Default encoding is `UTF-8`, which works best in `LMU` game. Note, `UTF-8` may not work well for some Latin characters in `RF2`, try use `ISO-8859-1` instead.
 
+[**`Back to Top`**](#)
 
-## Units and symbols
-**Units and symbols options can be accessed from `Config` menu in main window.**
+
+## Units
+**Units options can be accessed from `Config` menu in main window.**
 
     distance_unit
 2 unit types are available: `Meter`, `Feet`.
@@ -436,6 +550,8 @@ Set character encoding for displaying text in correct encoding. Available encodi
     tyre_pressure_unit
 3 unit types are available: `kPa`, `psi`, `bar`.
 
+[**`Back to Top`**](#)
+
 
 ## Global font override
 **Global font override options can be accessed from `Config` menu in main window, which allow changing font setting globally for all widgets.**
@@ -449,6 +565,8 @@ Set a value that will be added (or subtracted if negative) to `font_size` value 
     Font Weight
 Set font weight to replace `font_weight` setting of all widgets. Default selection is `no change`, which no changes will be applied.
 
+[**`Back to Top`**](#)
+
 
 ## Spectate mode
 **Spectate mode can be accessed from `Spectate` tab in main window.**
@@ -460,6 +578,8 @@ While Spectate mode is enabled, `double-click` on a player name in the list to a
 Select `Anonymous` for unspecified player, which is equivalent to player index `-1` in JSON file.
 
 Click `Refresh` button to manually refresh player name list.
+
+[**`Back to Top`**](#)
 
 
 ## Pace notes playback
@@ -477,15 +597,19 @@ Enable `Manually Select Pace Notes File` check box to disable auto-file-name mat
 
 `Global offset` adds global position offset (in meters) to current vehicle position on track, which affects when next pace note line will be played. This option only takes effect after clicked `Apply` button.
 
-`Max duration` sets maximum playback duration for each sound file, which can be used to limit sound file maximum playing duration. Default duration is 10 seconds. This option only takes effect after clicked `Apply` button.
+`Max duration` sets maximum playback duration for each sound file, which can be used to limit sound file maximum playing duration. Default duration is `10` seconds. This option only takes effect after clicked `Apply` button.
 
 `Max Queue` sets maximum number of sound files in playback queues. Default is `5` sound files. This option only takes effect after clicked `Apply` button.
 
 `Playback volume` sets output volume for sound file. This option takes immediate effect when adjusted.
 
+[**`Back to Top`**](#)
+
 
 # Tools
 **Tools can be accessed from main window menu.**
+
+[**`Back to Top`**](#)
 
 
 ## Fuel calculator
@@ -493,7 +617,7 @@ Enable `Manually Select Pace Notes File` check box to disable auto-file-name mat
 
 On the left side is calculation panel, which handles `fuel` and `virtual energy` usage calculation and results display.
 
-Fuel value and unit symbol depend on `Fuel Unit` setting from [Units And Symbols](#units-and-symbols) config dialog, `L` = liter, `gal` = gallon. Virtual energy unit is `%` = percentage. Note, after changed `Fuel Unit` setting, it is required to close and reopen `Fuel calculator` in order to update units info for calculation.
+Fuel value and unit symbol depend on `Fuel Unit` setting from [Units](#units) config dialog, `L` = liter, `gal` = gallon. Virtual energy unit is `%` = percentage. Note, after changed `Fuel Unit` setting, it is required to close and reopen `Fuel calculator` in order to update units info for calculation.
 
 On the right side is fuel consumption history table, which lists `lap number`, `lap time`, `fuel consumption`, `virtual energy consumption`, `battery drain`, `battery regen`, `tank capacity` data from [Consumption History](#consumption-history) data.
 Invalid lap time or consumption data is highlighted in red.
@@ -559,6 +683,8 @@ Set starting fuel or energy. This value is only used for calculating `Average re
     Average refueling, Average replenishing
 Show average refueling or replenishing per pit stop, and display warning color if value exceeds `Tank capacity` (fuel) or `100%` (energy).
 
+[**`Back to Top`**](#)
+
 
 ## Driver stats viewer
 **Driver stats viewer can be accessed from `Tools` menu in main window.**
@@ -583,11 +709,11 @@ To reset personal best lap time to default, right-click on personal best lap tim
 
 `PB` column is personal best lap time. This value can be reset via right-click menu.
 
-`Km` column is total driven distance in kilometers. Note, `odometer_unit` setting from [Units And Symbols](#units-and-symbols) affects how this column is displayed.
+`Km` column is total driven distance in kilometers. Note, `odometer_unit` setting from [Units](#units) affects how this column is displayed.
 
 `Hours` column is total time spent in driving (only counts when vehicle speed higher than 1 m/s).
 
-`Liter` column is total fuel consumed. Note, `fuel_unit` setting from [Units And Symbols](#units-and-symbols) affects how this column is displayed.
+`Liter` column is total fuel consumed. Note, `fuel_unit` setting from [Units](#units) affects how this column is displayed.
 
 `Valid` column is total valid laps completed.
 
@@ -603,11 +729,15 @@ To reset personal best lap time to default, right-click on personal best lap tim
 
 Note, race completion and final standings stats are retrieved at the moment when local driver crossed finish line on final lap, it does not concern any post-race penalties or finish state from team mate.
 
+[**`Back to Top`**](#)
+
 
 ## Vehicle brand editor
 **Vehicle brand editor can be accessed from `Tools` menu in main window.**
 
 Vehicle brand editor is used for editing [Brands Preset](#brands-preset). Note, any changes will only be saved and take effect after clicking `Apply` or `Save` Button.
+
+For brand logo image preparation, see [Brand Logo](#brand-logo) section.
 
 `Vehicle name` is full vehicle name that must match in-game vehicle name.
 
@@ -645,6 +775,8 @@ To batch replace name, click `Replace` button.
 
 To reset all brands setting to default, click `Reset` button; or manually delete `brands.json` preset.
 
+[**`Back to Top`**](#)
+
 
 ## Vehicle class editor
 **Vehicle class editor can be accessed from `Tools` menu in main window.**
@@ -665,6 +797,8 @@ To remove class, select one or more rows and click `Delete`.
 
 To reset all classes setting to default, click `Reset` button; or manually delete `classes.json` preset.
 
+[**`Back to Top`**](#)
+
 
 ## Brake editor
 **Brake editor can be accessed from `Tools` menu in main window.**
@@ -673,7 +807,7 @@ Brake editor is used for editing [Brakes Preset](#brakes-preset). Note, any chan
 
 `Brake name` column is full vehicle class name plus brake name that must match in-game vehicle.
 
-`Failure Thickness (mm)` column is millimeter thickness threshold at brake failure and affects brake wear calculation. See [Brake Wear](#brake-wear) widget for details.
+`Failure (mm)` column is millimeter thickness threshold at brake failure and affects brake wear calculation. See [Brake Wear](#brake-wear) widget for details.
 
 `Heatmap name` column is heatmap style name selector. Click on heatmap selector to open drop down list and select a heatmap style.
 
@@ -684,6 +818,32 @@ To sort brake name in orders, click `Sort` button.
 To remove brake, select one or more rows and click `Delete`.
 
 To reset all brakes setting to default, click `Reset` button; or manually delete `brakes.json` preset.
+
+[**`Back to Top`**](#)
+
+
+## Track info editor
+**Track info editor can be accessed from `Tools` menu in main window.**
+
+Track info editor is used for editing [Tracks Preset](#tracks-preset). Note, any changes will only be saved and take effect after clicking `Apply` or `Save` Button.
+
+`Track name` column is full track name that must match in-game track.
+
+`Pit entry (m)` column is pit entry position (in meters) relative to track length. This value is automatically recorded or updated by [Mapping Module](#mapping-module).
+
+`Pit exit (m)` column is pit exit position (in meters) relative to track length. This value is automatically recorded or updated by [Mapping Module](#mapping-module).
+
+`Pit speed (m/s)` column is pit lane speed limit (in meters per second). This value is automatically recorded or updated by [Mapping Module](#mapping-module). Note, vehicle pit limiter must be activated while in pit lane to allow recording speed limit.
+
+To add new track, click `Add` button. Note, the editor can auto-detect and fill-in missing track found from current active session, existing data will not be changed.
+
+To sort track name in orders, click `Sort` button.
+
+To remove track, select one or more rows and click `Delete`.
+
+To reset all tracks setting to default, click `Reset` button; or manually delete `tracks.json` preset.
+
+[**`Back to Top`**](#)
 
 
 ## Tyre compound editor
@@ -707,21 +867,23 @@ To batch replace name, click `Replace` button.
 
 To reset all tyre compounds setting to default, click `Reset` button; or manually delete `compounds.json` preset.
 
+[**`Back to Top`**](#)
+
 
 ## Heatmap editor
 **Heatmap editor can be accessed from `Tools` menu in main window.**
 
 Heatmap editor is used for editing [Heatmap Preset](#heatmap-preset). Note, any changes will only be saved and take effect after clicking `Apply` or `Save` Button.
 
-Each row represents a target temperature and corresponding color. First column is temperature degree value in `Celsius`. Second column is corresponding color (HEX code). Double-click on color to open color dialog.
+Each row represents a target temperature and corresponding color. First column is temperature degree value in `Celsius`, and up to one decimal place is kept. Second column is corresponding color (HEX code). Double-click on color to open color dialog.
 
 To add temperature, click `Add` button.
 
 To sort temperature list in orders, click `Sort` button.
 
-To batch offset temperature values, click `Offset` button. Click `Scale Mode` check box to scale temperature values. Note, offset option will be reset to `0` each time after applying. Last applied offset value is displayed on top of dialog.
+To batch offset temperature values, select one or more temperature from `temperature` column, then click `Offset` button. Click `Scale Mode` check box to scale temperature values. Note, offset option will be reset to `0` each time after applying. Last applied offset value is displayed on top of dialog.
 
-To remove a temperature, click `X` button of a temperature row.
+To remove a temperature, select one or more temperature and click `Remove` button.
 
 To select a different heatmap preset, click `drop-down list` at top, and select a preset name. Note: by selecting a different preset, any changes to previously selected heatmap will be saved in cache, and only be saved to file after clicking `Apply` or `Save` Button.
 
@@ -738,6 +900,8 @@ To assign a heatmap preset to specific widget, select corresponding `heatmap nam
 In case of errors found in `heatmap.json` preset, the APP will automatically fall back to built-in default heatmap preset.
 
 To restore all heatmap settings back to default, just delete `heatmap.json` preset.
+
+[**`Back to Top`**](#)
 
 
 ## Track map viewer
@@ -782,6 +946,8 @@ Set corner length classification by meters.
 
     slope_grade_*
 Set road slope classification by slope percent.
+
+[**`Back to Top`**](#)
 
 
 ## Track notes editor
@@ -833,9 +999,13 @@ To batch offset `distance` (position) values, first select one or multiple note 
 
 To highlight a `distance` value on `Track Map Viewer`, right-click on a note line and click `Highlight on Map`.
 
+[**`Back to Top`**](#)
+
 
 # Modules
 Modules provide important data that updated in real-time for other widgets. Widgets may stop updating or receiving readings if corresponding modules were turned off. Each module can be configured by accessing `Config` button from `Module` tab in main window.
+
+[**`Back to Top`**](#)
 
 
 ## Delta module
@@ -856,6 +1026,8 @@ Set number of samples for average laptime pace calculation (EMA). Value range in
     laptime_pace_margin
 Set additional margin for laptime pace that cannot exceed the sum of previous `laptime pace` and `margin`. This option is used to minimize the impact of unusually slow laptime. Default value is `5` seconds. Minimum value is limited to `0.1`.
 
+[**`Back to Top`**](#)
+
 
 ## Energy module
 **This module provides vehicle virtual energy usage data.**
@@ -865,6 +1037,8 @@ Enable energy module.
 
     minimum_delta_distance
 Set minimum recording distance (in meters) between each delta sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
+
+[**`Back to Top`**](#)
 
 
 ## Force module
@@ -891,6 +1065,8 @@ Set time delay in seconds for resetting max average g force. Default is `30` sec
     max_braking_rate_reset_delay
 Set time delay in seconds for resetting max braking rate. Default is `60` seconds.
 
+[**`Back to Top`**](#)
+
 
 ## Fuel module
 **This module provides vehicle fuel usage data.**
@@ -901,12 +1077,19 @@ Enable fuel module.
     minimum_delta_distance
 Set minimum recording distance (in meters) between each delta sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
 
+[**`Back to Top`**](#)
+
 
 ## Hybrid module
 **This module provides vehicle battery usage and electric motor data.**
 
     module_hybrid
 Enable hybrid module.
+
+    minimum_delta_distance
+Set minimum recording distance (in meters) between each delta sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
+
+[**`Back to Top`**](#)
 
 
 ## Mapping module
@@ -915,6 +1098,8 @@ Enable hybrid module.
     module_mapping
 Enable mapping module.
 
+[**`Back to Top`**](#)
+
 
 ## Notes module
 **This module processes track and pace notes data.**
@@ -922,12 +1107,16 @@ Enable mapping module.
     module_notes
 Enable notes module.
 
+[**`Back to Top`**](#)
+
 
 ## Relative module
 **This module provides vehicle relative and standings data.**
 
     module_relative
 Enable relative module.
+
+[**`Back to Top`**](#)
 
 
 ## RestAPI module
@@ -953,6 +1142,11 @@ Set number of attempts to retry connection. Value range in `0` to `10`. Default 
     connection_retry_delay
 Set time delay in seconds to retry connection. Value range in `0` to `60`. Default is `1` second.
 
+    enable_pit_strategy_access
+Set `false` to turn off "pit strategy" data accessing completely. Note, [Pit stop estimate](#pit-stop-estimate) Widget will not be able to display pit data if this option is turned off.
+
+[**`Back to Top`**](#)
+
 
 ## Sectors module
 **This module provides sectors timing data.**
@@ -962,6 +1156,8 @@ Enable sectors module.
 
     enable_all_time_best_sectors
 Calculate sectors timing based on all time best sectors and affects [Sectors](#sectors) widget display. This option is enabled by default. Set `false` to calculate sectors timing from current session only. Note, both session best and all time best sectors data are saved no matter the setting.
+
+[**`Back to Top`**](#)
 
 
 ## Stats module
@@ -984,6 +1180,8 @@ Set one of the three vehicle classifications where stats will be saved.
     enable_podium_by_class
 Enable to count race finish position by class instead of overall position.
 
+[**`Back to Top`**](#)
+
 
 ## Vehicles module
 **This module provides additional processed vehicles data.**
@@ -996,6 +1194,8 @@ Lap difference (percentage) threshold for tagging opponents as ahead. Default is
 
     lap_difference_behind_threshold
 Lap difference (percentage) threshold for tagging opponents as behind. Default is `0.9` lap.
+
+[**`Back to Top`**](#)
 
 
 ## Wheels module
@@ -1016,13 +1216,19 @@ Last saved vehicle identifier. This option is not for manual editing.
     last_wheel_radius_front, last_wheel_radius_rear
 Last saved radius of front and rear wheels. This option is not for manual editing.
 
+[**`Back to Top`**](#)
+
 
 # Widgets
 Each widget can be configured by accessing `Config` button from `Widget` tab in main window.
 
+[**`Back to Top`**](#)
+
 
 ## Battery
 **This widget displays battery usage info.**
+
+Note, there are some electric vehicles in `RF2` that are not based on the new electric motor and battery charge system, which there is no battery usage info available.
 
     show_battery_charge
 Show percentage available battery charge.
@@ -1033,6 +1239,13 @@ Show percentage battery charge drained in current lap.
     show_battery_regen
 Show percentage battery charge regenerated in current lap.
 
+    show_estimated_net_change
+Show estimated battery charge net change from current lap. Positive value indicates net gain (regen higher than drain); negative indicates net loss (drain higher than regen).
+
+Total net change reading is more accurate for vehicles that constantly consume battery charge, such as `FE` or `Hypercar` class. It is less useful for vehicles that only utilize electric motor for a short duration, such as `P2P`.
+
+Note, at least one full lap (excludes pit-out or first lap) is required to generate estimated net change data.
+
     show_activation_timer
 Show electric boost motor activation timer.
 
@@ -1041,6 +1254,8 @@ Set percentage threshold for low battery charge warning indicator.
 
     freeze_duration
 Set freeze duration (seconds) for displaying previous lap total drained/regenerated battery charge after crossing finish line. Value range in `0` to `30` seconds. Default is `10` seconds.
+
+[**`Back to Top`**](#)
 
 
 ## Brake bias
@@ -1071,6 +1286,8 @@ Set value to `0` to manual override and use front allocation, which is commonly 
 
 Set value to `1` to manual override and use rear allocation, which is commonly seen in LMDh class.
 
+[**`Back to Top`**](#)
+
 
 ## Brake performance
 **This widget displays brake performance info.**
@@ -1093,13 +1310,19 @@ Show front and rear wheel lock duration (seconds) per lap under braking. Duratio
     wheel_lock_threshold
 Set percentage threshold for counting wheel lock duration under braking. `0.3` means 30% of tyre slip ratio.
 
+[**`Back to Top`**](#)
+
 
 ## Brake pressure
 **This widget displays visualized percentage brake pressure info.**
 
+[**`Back to Top`**](#)
+
 
 ## Brake temperature
 **This widget displays brake temperature info.**
+
+Note, if temperature drops below `-100` degrees Celsius, temperature readings will be replaced by unavailable sign as `-`. This usually indicates brake failure, or brake is not available on one of the wheels.
 
     layout
 2 layouts are available: `0` = vertical layout, `1` = horizontal layout.
@@ -1125,6 +1348,8 @@ Show average brake temperature calculated from a full lap.
     highlight_duration
 Set duration (seconds) for highlighting average brake temperature from previous lap after crossing finish line. Default is `5` seconds.
 
+[**`Back to Top`**](#)
+
 
 ## Brake wear
 **This widget displays brake wear info.**
@@ -1148,8 +1373,8 @@ For example, if `brake thickness` is `40`mm, and `failure thickness` is `25`mm, 
 Since brake failure thickness threshold data is not available from game API, it may require testing to find out, and may vary from vehicle to vehicle. Front brake failure thickness threshold can be different from rear brake. Thickness threshold value should not exceed brake maximum thickness, otherwise brake wear readings will not be displayed correctly.
 
 Some reference brake failure thickness threshold:
-Hypercar and P2 classes in `LMU` usually have `25`mm brake failure threshold.
-GTE and LMGT3 class in `LMU` usually has `30`mm brake failure threshold.
+`Hypercar` and `P2` classes in `LMU` usually have `25`mm brake failure threshold.
+`GTE` and `LMGT3` class in `LMU` usually has `30`mm brake failure threshold.
 
     show_remaining
 Show total remaining brake in percentage that changes color according to wear.
@@ -1181,6 +1406,8 @@ Set warning threshold for estimated brake lifespan in laps. Default is `5` laps.
     warning_threshold_minutes
 Set warning threshold for estimated brake lifespan in minutes. Default is `5` laps.
 
+[**`Back to Top`**](#)
+
 
 ## Cruise
 **This widget displays track clock, compass, elevation, odometer info.**
@@ -1191,11 +1418,16 @@ Show current in-game clock time of the circuit.
     enable_track_clock_synchronization
 Enable auto track clock and time scale synchronization. RestAPI module must be enabled to synchronize track clock from Rest API.
 
+Note, for `RF2`, synchronization only works in singleplayer; for `LMU`, synchronization works in both singleplayer and multiplayer.
+
     track_clock_time_scale
-Maually set time multiplier for time-scaled session. Default is `1`, which matches `Time Scale: Normal` setting in-game. Note, this option will only be used if `enable_track_clock_synchronization` option is disabled.
+Manually set time multiplier for time-scaled session. Default is `1`, which matches `Time Scale: Normal` setting in-game. Note, this option will only be used if `enable_track_clock_synchronization` option is disabled.
 
     track_clock_format
 Set track clock format string. To show seconds, add `%S`, such as `%H:%M:%S %p`. See [link](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes) for full list of format codes.
+
+    show_time_scale
+Show current session track clock time scale multiplier.
 
     show_compass
 Show compass directions with three-figure bearings that matches game's cardinal directions.
@@ -1215,8 +1447,7 @@ Show distance into current lap.
     show_cornering_radius
 Show cornering radius calculated in real-time.
 
-    meters_driven
-This option is obsolete, it will be removed in the future.
+[**`Back to Top`**](#)
 
 
 ## Damage
@@ -1272,6 +1503,8 @@ Show vehicle body aero integrity reading in percentage if available, which bette
     show_inverted_integrity
 Invert integrity reading.
 
+[**`Back to Top`**](#)
+
 
 ## Deltabest
 **This widget displays deltabest info.**
@@ -1303,6 +1536,8 @@ Set freeze duration (seconds) for displaying previous lap time difference agains
     show_animated_deltabest
 Deltabest display follows delta bar progress.
 
+[**`Back to Top`**](#)
+
 
 ## Deltabest extended
 **This widget displays deltabest info against multiple lap time sources.**
@@ -1318,6 +1553,8 @@ Show deltabest against current personal stint best lap time. Note: stint deltabe
 
     show_deltalast
 Show delta against personal last lap time (deltalast). Note: deltalast will be reset upon ESC.
+
+[**`Back to Top`**](#)
 
 
 ## Differential
@@ -1343,6 +1580,8 @@ Set throttle threshold which counts as on throttle if throttle position is highe
     power_locking_reset_cooldown, coast_locking_reset_cooldown
 Set cooldown duration (seconds) before resetting minimum power or coast locking percent value if value hasn't changed during cooldown period. Default is `5` seconds.
 
+[**`Back to Top`**](#)
+
 
 ## DRS
 **This widget displays DRS(rear flap) usage info.**
@@ -1361,6 +1600,8 @@ Set color when DRS is available but current disallowed to use.
 
     font_color_not_available, bkg_color_not_available
 Set color when DRS is unavailable for current track or car.
+
+[**`Back to Top`**](#)
 
 
 ## Electric motor
@@ -1387,6 +1628,8 @@ Show electric motor torque.
     show_power
 Show electric motor power.
 
+[**`Back to Top`**](#)
+
 
 ## Elevation
 **This widget displays elevation plot. Note: elevation plot data is recorded together with track map. At least one complete and valid lap is required to generate elevation plot.**
@@ -1408,12 +1651,6 @@ Show elevation difference in game's coordinate system.
 
     show_elevation_scale
 Show elevation plot scale reading, which is ratio between screen pixel and real world elevation. A `1:10.5` reading means 1 pixel equals 10.5 meters (or feet, depends on distance unit setting).
-
-    *_offset_x, *_offset_y
-Set reading text offset position (percentage), value range in `0.0` to `1.0`.
-
-    *_text_alignment
-Set reading text alignment. Acceptable value: `Left`, `Center`, `Right`.
 
     show_background
 Show widget background.
@@ -1442,6 +1679,8 @@ Show sector line mark.
     show_position_mark
 Show player's current position line mark.
 
+[**`Back to Top`**](#)
+
 
 ## Engine
 **This widget displays engine usage info.**
@@ -1469,6 +1708,8 @@ Show engine torque.
 
     show_power
 Show engine power.
+
+[**`Back to Top`**](#)
 
 
 ## Flag
@@ -1552,6 +1793,8 @@ Show pit request indicator and `pit-in laps countdown` alongside `estimated rema
     show_finish_state
 Show finish or disqualify state.
 
+[**`Back to Top`**](#)
+
 
 ## Force
 **This widget displays g force and downforce info.**
@@ -1571,6 +1814,8 @@ Show front and rear downforce reading in Newtons.
     warning_color_liftforce
 Set lift force indicator color.
 
+[**`Back to Top`**](#)
+
 
 ## Friction circle
 **This widget displays g force in circle diagram.**
@@ -1581,8 +1826,8 @@ Set widget size in pixels.
     display_radius_g
 Set viewable g force range by radius(g).
 
-    display_orientation
-Set display orientation for longitudinal and lateral g force axis. Default is `0`, which shows brake at top, acceleration at bottom, right-turn at left, left-turn at right. Set to `1` to inverted orientation.
+    show_inverted_orientation
+Set `true` to invert display orientation for longitudinal and lateral g force axis. Default is `false`, which shows brake at top, acceleration at bottom, right-turn at left, left-turn at right.
 
     show_readings
 Show values from g force reading. Value at top is current longitudinal g force, and value at bottom is max longitudinal g force. Value at left is max lateral g force, and value at right is current lateral g force.
@@ -1656,9 +1901,15 @@ Set reference circle line style. `0` for dashed line, `1` for solid line.
     reference_circle_*_width
 Set reference circle line width in pixels.
 
+[**`Back to Top`**](#)
+
 
 ## Fuel
 **This widget displays fuel usage info.**
+
+Note, for non-hybrid pure electric vehicle, this widget will show `battery charge` usage (in percentage) info instead. Since multiple different electric systems exist in `RF2`, there is no reliable way to distinguish pure electric vehicles from fuel or hybrid vehicles, it is important to make sure `fuel_unit` option in [Units](#units) setting is set to `Liter` in order to correctly display battery charge usage in `percentage` for pure electric vehicles.
+
+---
 
 Differences between `relative` and `absolute` refueling:
 
@@ -1745,6 +1996,8 @@ Set custom caption text.
     swap_upper_caption, swap_lower_caption
 Swap caption row position.
 
+[**`Back to Top`**](#)
+
 
 ## Fuel energy saver
 **This widget displays fuel or virtual energy saving info.**
@@ -1767,6 +2020,8 @@ Set number of target slots for more completable laps. Default is `3`. Range in `
 
     number_of_less_laps
 Set number of target slots for less completable laps. Default is `0`. Range in `0` to `5`.
+
+[**`Back to Top`**](#)
 
 
 ## Gear
@@ -1799,6 +2054,9 @@ Invert battery bar progression.
     battery_bar_height
 Set battery bar height in pixels.
 
+    show_battery_reading
+Show battery charge (in percentage) reading text on battery bar.
+
     show_rpm_bar
 Show a RPM bar at bottom of gear widget, which moves when RPM reaches range between safe and max RPM.
 
@@ -1807,6 +2065,9 @@ Invert RPM bar progression.
 
     rpm_bar_height
 RPM bar height, in pixel.
+
+    show_rpm_reading
+Show RPM reading text on RPM bar.
 
     rpm_multiplier_safe
 This value multiplies max RPM value, which sets relative safe RPM range for RPM color indicator (changes gear widget background color upon reaching this RPM value).
@@ -1823,6 +2084,8 @@ Show flickering effects when RPM is above critical range and gear is lower than 
     neutral_warning_speed_threshold, neutral_warning_time_threshold
 Set speed/time threshold value for neutral gear color warning, which activates color warning when speed and time-in-neutral is higher than threshold. Speed unit in meters per second, Default is `28`. Time unit in seconds, Default is `0.3` seconds.
 
+[**`Back to Top`**](#)
+
 
 ## Heading
 **This widget displays vehicle yaw angle, slip angle, heading info.**
@@ -1835,9 +2098,6 @@ Show yaw angle reading in degree.
 
     show_slip_angle_reading
 Show slip angle reading in degree.
-
-    *_offset_x, *_offset_y
-Set reading text offset position (percentage), value range in `0.0` to `1.0`.
 
     show_degree_sign
 Set `true` to show degree sign for yaw angle reading.
@@ -1881,6 +2141,8 @@ Set center mark line style. `0` for dashed line, `1` for solid line.
     center_mark_width
 Set center mark line width in pixels.
 
+[**`Back to Top`**](#)
+
 
 ## Instrument
 **This widget displays vehicle instruments info.**
@@ -1915,6 +2177,8 @@ Set percentage threshold for triggering wheel lock warning under braking. `0.3` 
     wheel_slip_threshold
 Set percentage threshold for triggering wheel slip warning under acceleration. `0.1` means 10% of tyre slip ratio.
 
+[**`Back to Top`**](#)
+
 
 ## Lap time history
 **This widget displays lap time history info.**
@@ -1931,6 +2195,8 @@ Show virtual energy consumption instead of fuel consumption if available. This o
     show_empty_history
 Show empty lap time history. Default is `false`, which hides empty rows.
 
+[**`Back to Top`**](#)
+
 
 ## Laps and position
 **This widget displays lap number, driver overall position, position in class info.**
@@ -1946,6 +2212,8 @@ Show your current overall position against all drivers in a session.
 
     show_position_in_class
 Show your current position in class against all drivers from the same class.
+
+[**`Back to Top`**](#)
 
 
 ## Navigation
@@ -1999,6 +2267,8 @@ Set vehicle vertical position offset (percentage) relative to display size, valu
     vehicle_outline_width
 Set vehicle outline width.
 
+[**`Back to Top`**](#)
+
 
 ## P2P
 **This widget displays push to pass usage info.**
@@ -2023,6 +2293,8 @@ Set minimum time delay between each P2P activation, unit in seconds.
 
     maximum_activation_time_per_lap
 Set maximum P2P activation time per lap, unit in seconds.
+
+[**`Back to Top`**](#)
 
 
 ## Pace notes
@@ -2051,6 +2323,8 @@ Auto hide this widget if pace notes data is not available for current track.
 
     maximum_display_duration
 Set maximum display duration (seconds) of each note. Set to `-1` to always display notes. Default is `-1`.
+
+[**`Back to Top`**](#)
 
 
 ## Pedal
@@ -2091,6 +2365,50 @@ Show Force Feedback meter.
 
     show_*_filtered
 Show filtered pedal input if available. Note, some vehicles may not provide filtered pedal input value, which the value will be zero. Disable this option to show raw input only.
+
+[**`Back to Top`**](#)
+
+
+## Pit stop estimate
+**This widget displays estimated pit stop duration and refilling info.**
+
+Note, this widget is designed for `LMU`. Most readings are not available for `RF2` due to lack of API data.
+
+    pass_duration
+Show estimated pit-lane pass through (drive-through) time, calculated from pit-entry to pit-exit line. Average accuracy is within `0.5` seconds. Note, for any new tracks, at least one pit-lane pass through is required to record data for pass through time calculation.
+
+    stop_duration
+Show estimated pit stop time while making a service stop or serving a penalty, calculated according to each setting from MFD `Pitstop` page and underlying service timing and concurrency differences. Average accuracy is within `1` seconds.
+
+Note, for unscheduled pit stop (without requesting pit), game sometimes will add random amount extra delay (as part of pit crew preparation time) on top of pit stop time. To avoid this, always requests pit before entering pit.
+
+    maximum_delay
+Show maximum total random delay which game may add on top of pit stop time. For example, if estimated pit stop time is `12.0`s, and maximum delay is `+3.0`s, then final pit stop time will be between `12.0`s and `15.0`s.
+
+    stop_go_penalty_time
+Set stop go penalty time in seconds. Default value is `10` seconds.
+
+    additional_pitstop_time
+Set additional pit stop time that is not part of `pass_duration` or `stop_duration`. Default value is `2` seconds, which is the average time it takes to decelerate and accelerate towards and away from pit spot.
+
+    minimum_total_duration
+Show estimated minimum total pit time, which is the sum of `pass_duration`, `stop_duration`, and `additional_pitstop_time`. Note, this reading is recalculated only while not in pit lane.
+
+    maximum_total_duration
+Show estimated maximum total pit time, which is the sum of `minimum_total_duration` and `maximum_delay`. Note, this reading is recalculated only while not in pit lane.
+
+    pit_timer
+Show pit timer, useful for comparing against other pit time readings.
+
+    actual_relative_refill
+Show actual relative refilling, as the total additional fuel or virtual energy that will be added in next pit stop according to remaining fuel or virtual energy and user refill setting from MFD `Pitstop` page.
+
+    total_relative_refill
+Show total relative refilling, as the total additional fuel or virtual energy that is required to finish the race. This is the same value as seen from `refill` column of Fuel Widget or Virtual energy Widget.
+
+With both `actual` and `total` relative refilling readings, users can determine precisely how much fuel or virtual energy that will be added in next pit stop, and whether the refilling will be enough or more pit stops are required.
+
+[**`Back to Top`**](#)
 
 
 ## Radar
@@ -2133,10 +2451,19 @@ Fade out radar edge.
 Set fade in/out radius relative to radar radius, value range in `0.0` to `1.0`.
 
     show_overlap_indicator
-Show overlap indicator when there is nearby side by side vehicle.
+Show overlap indicator when there are nearby side by side vehicles. This option shows `boundary style` indicator if `show_overlap_indicator_in_cone_style` option is disabled.
 
-    overlap_detection_range_multiplier
-Set overlap detection range multiplier that scales with vehicle width.
+    show_overlap_indicator_in_cone_style
+Show overlap indicator in `cone style` instead of `boundary style`.
+
+    overlap_cone_angle
+Set cone display angle in degrees. This option does not affect overlap detection range. Default is `120` degrees.
+
+    overlap_nearby_range_multiplier
+Set nearby vehicle overlap detection range multiplier that scales with vehicle width. A value of `5` would result a 5-vehicle-wide detection range. Default is `5` vehicle-wide.
+
+    overlap_critical_range_multiplier
+Set nearby vehicle critical overlap detection range multiplier that scales with vehicle width. Default is `1` vehicle-wide.
 
     indicator_size_multiplier
 Set indicator size multiplier that scales with vehicle width.
@@ -2152,6 +2479,9 @@ Set center mark size by radius(unit meter).
 
     center_mark_width
 Set center mark line width in pixels.
+
+    show_angle_mark
+Show angle mark (fixed 45 degrees) on radar.
 
     show_distance_circle
 Show distance circle line on radar for distance reference.
@@ -2180,6 +2510,8 @@ The three values define an invisible rectangle area(unit meter) that auto hides 
     vehicle_maximum_visible_distance_ahead, behind, side
 The three values define an invisible rectangle area(unit meter) that hides any vehicle outside the rectangle area. Default value is `-1`, which auto scales with `radar_radius` value. Set to any positive value to customize vehicle visible range. Note, each value is measured from center of player's vehicle position.
 
+[**`Back to Top`**](#)
+
 
 ## Rake angle
 **This widget displays vehicle rake info.**
@@ -2192,6 +2524,8 @@ Set `true` to show degree sign for rake angle value.
 
     show_ride_height_difference
 Show average front and rear ride height difference in millimeters.
+
+[**`Back to Top`**](#)
 
 
 ## Relative
@@ -2208,6 +2542,12 @@ Set font color for lap difference. Note, `font_color_laps_ahead` and `font_color
 
     show_position
 Show overall position standings.
+
+    show_position_change
+Show overall driver position change relative to overall qualification position.
+
+    show_position_change_in_class
+Show driver position change in class instead of overall. This option is enabled by default.
 
     show_driver_name
 Show driver name.
@@ -2253,6 +2593,9 @@ Show plus or minus sign for time gap. `-` sign indicates opponent's relative pos
 
     time_gap_width
 Set time gap display width, value is in chars, 5 = 5 chars wide.
+
+    time_gap_align_center
+Align time gap in the center when enabled. Default is right alignment when disabled.
 
     show_highlighted_nearest_time_gap
 Show highlighted color on opponents within nearest time gap threshold.
@@ -2301,6 +2644,8 @@ Show vehicles parked in garage stall. Default is `false`. Note, local player is 
 
     additional_players_front, additional_players_behind
 Set additional players shown on relative list. Each value is limited to a maximum of 60 additional players (for a total of 120 additional players). Default is `0`.
+
+[**`Back to Top`**](#)
 
 
 ## Relative finish order
@@ -2449,6 +2794,8 @@ Set number of optional predication columns with customizable pit time. Value ran
     predication_*_leader_pit_time, predication_*_player_pit_time
 Set predication pit time for leader or local player.
 
+[**`Back to Top`**](#)
+
 
 ## Ride height
 **This widget displays visualized ride height info.**
@@ -2459,14 +2806,21 @@ Set visualized maximum ride height display range (millimeter).
     rideheight_offset*
 Set ride height offset for bottoming indicator. Value in millimeters, but without decimal place.
 
+[**`Back to Top`**](#)
+
 
 ## Rivals
 **This widget displays standings info from opponent ahead and behind local player from same vehicle class.**
 
 Note, most options are inherited from [Relative](#relative) and [Standings](#standings) widgets, with some additions noted below.
 
+    time_interval_align_center
+Align time interval in the center when enabled. Default is right alignment when disabled.
+
     *_color_time_interval_ahead, *_color_time_interval_behind
 Set custom time interval color of opponent ahead and behind.
+
+[**`Back to Top`**](#)
 
 
 ## Sectors
@@ -2480,6 +2834,8 @@ Set target laptime for display target reference lap and sector time. Set `Theore
 
     freeze_duration
 Set freeze duration (seconds) for displaying previous sector time. Default is `5` seconds.
+
+[**`Back to Top`**](#)
 
 
 ## Session
@@ -2505,6 +2861,8 @@ Show estimated total remaining laps (from current lap position towards finish li
 
 Note, this is the same value that used for calculating estimated refueling value in Fuel Module. As with estimation, there may be a margin of error of one lap, and may be affected by other variables such as those mentioned in [Relative Finish Order](#relative-finish-order) widget.
 
+[**`Back to Top`**](#)
+
 
 ## Slip ratio
 **This widget displays visualized slip ratio info.**
@@ -2514,6 +2872,8 @@ Set optimal slip ratio range (percentage) for optimal and critical slip ratio co
 
     slip_ratio_max_range
 Set visualized maximum slip ratio display range (percentage), value range in `10` to `100`. Default is `50` percent.
+
+[**`Back to Top`**](#)
 
 
 ## Speedometer
@@ -2542,6 +2902,8 @@ Set throttle threshold which counts as on throttle if throttle position is highe
 
     speed_minimum_reset_cooldown, speed_maximum_reset_cooldown
 Set cooldown duration (seconds) before resetting minimum or maximum speed value.
+
+[**`Back to Top`**](#)
 
 
 ## Standings
@@ -2594,6 +2956,19 @@ Show driver's last lap time or pit timer if available. If `show_best_laptime` is
     show_best_laptime
 Show driver's session best lap time.
 
+    show_delta_laptime
+Show lap time difference (delta) between player and opponents from most recent laps (up to 5 recent lap time records). The default layout order shows delta lap time records from right side column (most recent lap) to left.
+
+A green color (default) delta indicates that player's recent lap time is faster than opponent, while orange color delta indicates the opposite.
+
+    show_inverted_delta_laptime_layout
+Enable this option to invert layout order for delta lap time records.
+
+    number_of_delta_laptime
+Set number of delta lap time records to display. Minimum number is limited to `2`, maximum is limited to `5`.
+
+[**`Back to Top`**](#)
+
 
 ## Steering
 **This widget displays steering input info.**
@@ -2616,6 +2991,8 @@ This enables scale marks on steering bar.
     scale_mark_degree
 Set gap between each scale mark in degree. Default is `90` degree. Minimum value is limited to `10` degree.
 
+[**`Back to Top`**](#)
+
 
 ## Steering wheel
 **This widget displays virtual steering wheel.**
@@ -2637,9 +3014,6 @@ Set widget display margin in pixels.
     show_steering_angle
 Show steering angle text in degree.
 
-    *_offset_x, *_offset_y
-Set steering angle text offset position (percentage), value range in `0.0` to `1.0`.
-
     manual_steering_range
 Manually set steering display range in degree. Set to `0` to read physical steering range from API. This option may be useful when steering range value is not provided by some vehicles.
 
@@ -2648,6 +3022,8 @@ Show steering rotation reference line, which can be useful to see if physical st
 
     show_rotation_line_while_stationary_only
 Show rotation line only while vehicle is stationary (less than 1m/s).
+
+[**`Back to Top`**](#)
 
 
 ## Stint history
@@ -2668,12 +3044,28 @@ Show empty stint history. Default is `false`, which hides empty rows.
     minimum_stint_threshold_minutes
 Set the minimum stint time threshold in minutes for updating stint history. This only affects ESC.
 
+[**`Back to Top`**](#)
+
+
+## Suspension force
+**This widget displays visualized suspension force and ratio info.**
+
+    show_force_ratio
+Show percentage force ratio between each and total suspension force. Set `false` to show individual suspension force in Newtons.
+
+[**`Back to Top`**](#)
+
 
 ## Suspension position
 **This widget displays visualized suspension position info.**
 
     position_max_range
 Set visualized maximum suspension position display range (millimeter).
+
+    show_third_spring_position_mark
+Show front and rear third spring position mark relative to each suspension position.
+
+[**`Back to Top`**](#)
 
 
 ## System performance
@@ -2687,6 +3079,8 @@ Show TinyPedal's CPU utilization (percent) and memory usage (MB).
 
     average_samples
 Set number of samples for average CPU utilization calculation (EMA). Value range in `1` to `500`. Lower value may result more fluctuated reading. Set `1` to disable averaging.
+
+[**`Back to Top`**](#)
 
 
 ## Timing
@@ -2722,9 +3116,14 @@ Show personal current stint best lap time.
     show_average_pace
 Show personal current average lap time pace, this reading is also used in real-time fuel calculation. Note, additional `average lap time pace` calculation setting can be found in [Delta Module](#delta-module) config. After ESC or session ended, lap time pace reading will be reset, and aligned to `all time personal best lap time` if available.
 
+[**`Back to Top`**](#)
+
 
 ## Track map
 **This widget displays track map and standings. Note: at least one complete and valid lap is required to generate track map.**
+
+    display_orientation
+Set track map display orientation in degrees. For example, a `270` value will rotate map by `270` degrees clockwise. Default value is `0`, which always displays track map `North Up` in game's coordinate system.
 
     display_detail_level
 Sets detail level for track map. Default value is `1`, which auto adjusts map detail according to display size. Higher value reduces map detail and RAM usage, and may also help reduce rough edges from large map. Set to `0` for full detail.
@@ -2772,6 +3171,9 @@ Note, pit out position prediction is based on `delta best` data which scaled wit
 
 For accurate prediction, the location of `pit out line` must be found first. And since each track has different pit out line location, it is required to `pit out` at least `once per session` to mark the correct pit out line location. This can be easily done by driving out of pit lane.
 
+    show_pitout_prediction_while_requested_pitstop
+Show estimated pit out on-track position indication while player has requested pitstop and not in pit lane.
+
     number_of_predication
 Set number of pit out predication to display. Value range is limited in `1` to `20`.
 
@@ -2790,6 +3192,8 @@ Note, this value is important for accurate prediction, as initial vehicle speed 
 
     show_pitstop_duration
 Show pit stop duration reading on top of each predication circle.
+
+[**`Back to Top`**](#)
 
 
 ## Track notes
@@ -2821,6 +3225,8 @@ Auto hide this widget if track notes data is not available for current track.
 
     maximum_display_duration
 Set maximum display duration (seconds) of each note. Set to `-1` to always display notes. Default is `-1`.
+
+[**`Back to Top`**](#)
 
 
 ## Trailing
@@ -2886,9 +3292,13 @@ Set reference line width in pixels. Set value to `0` to hide line.
     draw_order_index_*
 Set draw order of plot lines.
 
+[**`Back to Top`**](#)
+
 
 ## Tyre carcass temperature
 **This widget displays tyre carcass temperature info.**
+
+Note, if temperature drops below `-100` degrees Celsius, temperature readings will be replaced by unavailable sign as `-`.
 
     enable_heatmap_auto_matching
 Enable automatically heatmap style matching for specific tyre compounds defined in `compounds.json` preset. This option applies matching heatmap style to front and rear tyre compounds separately.
@@ -2916,9 +3326,13 @@ Set number of samples for rate of change data smoothing calculation (EMA). Value
     show_tyre_compound
 Show tyre compound symbols (front and rear) that matches specific tyre compounds defined in `compounds.json` preset.
 
+[**`Back to Top`**](#)
+
 
 ## Tyre inner layer
 **This widget displays tyre inner layer temperature info.**
+
+Note, if temperature drops below `-100` degrees Celsius, temperature readings will be replaced by unavailable sign as `-`.
 
     enable_heatmap_auto_matching
 Enable automatically heatmap style matching for specific tyre compounds defined in `compounds.json` preset. This option applies matching heatmap style to front and rear tyre compounds separately.
@@ -2943,20 +3357,28 @@ Set amount leading zeros for each temperature value. Default is `2`. Minimum val
     show_tyre_compound
 Show tyre compound symbols (front and rear) that matches specific tyre compounds defined in `compounds.json` preset.
 
+[**`Back to Top`**](#)
+
 
 ## Tyre load
-**This widget displays visualized tyre load info.**
+**This widget displays visualized tyre load and ratio info.**
 
     show_tyre_load_ratio
-Show percentage ratio of tyre load between each and total tyre load. Set `false` to show individual tyre load in Newtons.
+Show percentage load ratio between each and total tyre load. Set `false` to show individual tyre load in Newtons.
+
+[**`Back to Top`**](#)
 
 
 ## Tyre pressure
 **This widget displays tyre pressure info.**
 
+[**`Back to Top`**](#)
+
 
 ## Tyre temperature
 **This widget displays tyre surface temperature info.**
+
+Note, if temperature drops below `-100` degrees Celsius, temperature readings will be replaced by unavailable sign as `-`.
 
     enable_heatmap_auto_matching
 Enable automatically heatmap style matching for specific tyre compounds defined in `compounds.json` preset. This option applies matching heatmap style to front and rear tyre compounds separately.
@@ -2980,6 +3402,8 @@ Set amount leading zeros for each temperature value. Default is `2`. Minimum val
 
     show_tyre_compound
 Show tyre compound symbols (front and rear) that matches specific tyre compounds defined in `compounds.json` preset.
+
+[**`Back to Top`**](#)
 
 
 ## Tyre wear
@@ -3018,11 +3442,15 @@ Set warning threshold for estimated tyre lifespan in laps. Default is `5` laps.
     warning_threshold_minutes
 Set warning threshold for estimated tyre lifespan in minutes. Default is `5` laps.
 
+[**`Back to Top`**](#)
+
 
 ## Virtual energy
 **This widget displays virtual energy usage info.**
 
 Note, most options are inherited from [Fuel](#fuel) widget, with some additions noted below.
+
+Virtual energy is not `real energy`, and different from `battery charge`. For battery charge usage info, see [Battery](#battery) widget.
 
     show_absolute_refilling
 Show absolute refilling value instead of relative refilling when enabled. Note, `+` or `-` sign is not displayed with absolute refilling.
@@ -3036,6 +3464,8 @@ Show fuel bias (unit in laps) that calculated from estimated laps difference bet
 Positive value indicates more laps can be run on fuel than virtual energy; in other words, virtual energy will deplete sooner than fuel. For example, a value of `+1.5` indicates that there will be `1.5 laps` of extra fuel remaining after virtual energy depleted.
 
 Note, depleting virtual energy could result a `Stop-Go` penalty in `LMU`; while running out of fuel means no power for vehicle and would result retirement from race. So it is a good idea to keep fuel bias close to `0.0`, and slightly towards positive side to avoid depleting fuel before virtual energy.
+
+[**`Back to Top`**](#)
 
 
 ## Weather
@@ -3054,6 +3484,11 @@ Show average surface wetness in percentage.
 Set weather change trend interval in seconds for temperature, raininess, surface wetness readings. Default interval is `60` seconds.
 
 If weather readings increased within the interval, `▲` uparrow sign will be shown; if readings decreased within the interval, `▼` downarrow sign will be shown; If readings has not changed during the interval, `●` sign will be shown after.
+
+    decimal_places_temperature
+Set amount decimal places to keep. Default is `1` decimal place, set to `0` to hide decimals. Note, when number of digits is less than expected, extra leading zero or decimal place will be added to fill the gap.
+
+[**`Back to Top`**](#)
 
 
 ## Weather forecast
@@ -3077,6 +3512,8 @@ Set number of forecasts to display. Value range in `1` to `4`. Default is `4` fo
     show_unavailable_data
 Show columns with unavailable weather data. Set `False` to auto hide columns with unavailable data. Note, auto hide only works for time-based race.
 
+[**`Back to Top`**](#)
+
 
 ## Wheel alignment
 **This widget displays camber and toe-in info.**
@@ -3086,3 +3523,5 @@ Show camber in degree.
 
     show_toe_in
 Show toe-in in degree.
+
+[**`Back to Top`**](#)

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -27,6 +27,7 @@ from .. import calculation as calc
 from ..api_control import api
 from ..module_info import minfo
 from ._base import Overlay
+
 
 class Realtime(Overlay):
     """Draw widget"""

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,9 +21,15 @@ Tyre inner layer temperature Widget
 """
 
 from .. import calculation as calc
-from .. import heatmap as hmp
-from ..regex_pattern import TEXT_PLACEHOLDER, TEXT_NOTAVAILABLE
 from ..api_control import api
+from ..const_common import TEXT_NA, TEXT_PLACEHOLDER
+from ..units import set_unit_temperature
+from ..userfile.heatmap import (
+    HEATMAP_DEFAULT_TYRE,
+    load_heatmap_style,
+    select_compound_symbol,
+    select_tyre_heatmap_name,
+)
 from ._base import Overlay
 
 
@@ -46,9 +52,12 @@ class Realtime(Overlay):
         # Config variable
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         inner_gap = self.wcfg["inner_gap"]
-        self.leading_zero = min(max(self.wcfg["leading_zero"], 1), 3)
+        self.leading_zero = min(max(self.wcfg["leading_zero"], 1), 3) + 0.0  # no decimal
         self.sign_text = "°" if self.wcfg["show_degree_sign"] else ""
         text_width = 3 + len(self.sign_text) + (self.cfg.units["temperature_unit"] == "Fahrenheit")
+
+        # Config units
+        self.unit_temp = set_unit_temperature(self.cfg.units["temperature_unit"])
 
         # Base style
         self.setStyleSheet(self.set_qss(
@@ -67,9 +76,9 @@ class Realtime(Overlay):
 
         # Heatmap style list: 0 - fl, 1 - fr, 2 - rl, 3 - rr
         self.heatmap_styles = 4 * [
-            hmp.load_heatmap_style(
+            load_heatmap_style(
                 heatmap_name=self.wcfg["heatmap_name"],
-                default_name=hmp.HEATMAP_DEFAULT_TYRE,
+                default_name=HEATMAP_DEFAULT_TYRE,
                 swap_style=self.wcfg["swap_style"],
                 fg_color=self.wcfg["font_color_inner_layer"],
                 bg_color=self.wcfg["bkg_color_inner_layer"],
@@ -78,7 +87,7 @@ class Realtime(Overlay):
 
         # Tyre inner temperature
         self.bars_itemp = self.set_table(
-            text=TEXT_NOTAVAILABLE,
+            text=TEXT_NA,
             style=bar_style_itemp,
             width=font_m.width * text_width + bar_padx,
             layout=layout,
@@ -124,19 +133,22 @@ class Realtime(Overlay):
         """Tyre inner temperature"""
         if target.last != data:
             target.last = data
-            target.setText(self.format_temperature(data))
+            if data < -100:
+                target.setText(TEXT_PLACEHOLDER)
+            else:
+                target.setText(f"{self.unit_temp(data):0{self.leading_zero}f}{self.sign_text}")
             target.setStyleSheet(calc.select_grade(self.heatmap_styles[index], data))
 
     def update_tcmpd(self, target, data, index):
         """Tyre compound"""
         if target.last != data:
             target.last = data
-            target.setText(hmp.select_compound_symbol(data))
+            target.setText(select_compound_symbol(data))
             # Update heatmap style
             if self.wcfg["enable_heatmap_auto_matching"]:
-                heatmap_style = hmp.load_heatmap_style(
-                    heatmap_name=hmp.select_tyre_heatmap_name(data),
-                    default_name=hmp.HEATMAP_DEFAULT_TYRE,
+                heatmap_style = load_heatmap_style(
+                    heatmap_name=select_tyre_heatmap_name(data),
+                    default_name=HEATMAP_DEFAULT_TYRE,
                     swap_style=self.wcfg["swap_style"],
                     fg_color=self.wcfg["font_color_inner_layer"],
                     bg_color=self.wcfg["bkg_color_inner_layer"],
@@ -169,10 +181,3 @@ class Realtime(Overlay):
             )
             self.set_grid_layout_quad(layout, bar_set)
         return bar_set
-
-    # Additional methods
-    def format_temperature(self, value):
-        """Format temperature"""
-        if self.cfg.units["temperature_unit"] == "Fahrenheit":
-            return f"{calc.celsius2fahrenheit(value):0{self.leading_zero}.0f}{self.sign_text}"
-        return f"{value:0{self.leading_zero}.0f}{self.sign_text}"

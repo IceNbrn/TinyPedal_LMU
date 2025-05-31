@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -24,25 +24,25 @@ import logging
 import time
 
 from PySide2.QtWidgets import (
-    QVBoxLayout,
+    QComboBox,
     QHBoxLayout,
-    QDialogButtonBox,
-    QPushButton,
+    QHeaderView,
+    QMessageBox,
     QTableWidget,
     QTableWidgetItem,
-    QMessageBox,
-    QHeaderView,
-    QComboBox,
+    QVBoxLayout,
 )
 
 from ..api_control import api
-from ..setting import ConfigType, cfg, copy_setting
+from ..const_file import ConfigType
 from ..module_control import wctrl
-from ..heatmap import set_predefined_compound_symbol, HEATMAP_DEFAULT_TYRE
+from ..setting import cfg, copy_setting
+from ..userfile.heatmap import HEATMAP_DEFAULT_TYRE, set_predefined_compound_symbol
 from ._common import (
     BaseEditor,
+    CompactButton,
     TableBatchReplace,
-    QSS_EDITOR_BUTTON,
+    UIScaler,
 )
 
 HEADER_COMPOUNDS = "Compound name","Symbol","Heatmap name"
@@ -56,7 +56,7 @@ class TyreCompoundEditor(BaseEditor):
     def __init__(self, parent):
         super().__init__(parent)
         self.set_utility_title("Tyre Compound Editor")
-        self.setMinimumSize(600, 500)
+        self.setMinimumSize(UIScaler.size(45), UIScaler.size(38))
 
         self.compounds_temp = copy_setting(cfg.user.compounds)
 
@@ -66,11 +66,10 @@ class TyreCompoundEditor(BaseEditor):
         self.table_compounds.setHorizontalHeaderLabels(HEADER_COMPOUNDS)
         self.table_compounds.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table_compounds.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        font_w = self.fontMetrics().averageCharWidth()
         self.table_compounds.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
-        self.table_compounds.setColumnWidth(1, font_w * 13)
+        self.table_compounds.setColumnWidth(1, UIScaler.size(6))
         self.table_compounds.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
-        self.table_compounds.setColumnWidth(2, font_w * 26)
+        self.table_compounds.setColumnWidth(2, UIScaler.size(12))
         self.table_compounds.cellChanged.connect(self.verify_input)
         self.refresh_table()
         self.set_unmodified()
@@ -82,39 +81,34 @@ class TyreCompoundEditor(BaseEditor):
         layout_main = QVBoxLayout()
         layout_main.addWidget(self.table_compounds)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
 
     def set_layout_button(self):
         """Set button layout"""
-        button_add = QPushButton("Add")
+        button_add = CompactButton("Add")
         button_add.clicked.connect(self.add_compound)
-        button_add.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_sort = QPushButton("Sort")
+        button_sort = CompactButton("Sort")
         button_sort.clicked.connect(self.sort_compound)
-        button_sort.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_delete = QPushButton("Delete")
+        button_delete = CompactButton("Delete")
         button_delete.clicked.connect(self.delete_compound)
-        button_delete.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_replace = QPushButton("Replace")
+        button_replace = CompactButton("Replace")
         button_replace.clicked.connect(self.open_replace_dialog)
-        button_replace.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_reset = QDialogButtonBox(QDialogButtonBox.Reset)
+        button_reset = CompactButton("Reset")
         button_reset.clicked.connect(self.reset_setting)
-        button_reset.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_apply = QDialogButtonBox(QDialogButtonBox.Apply)
+        button_apply = CompactButton("Apply")
         button_apply.clicked.connect(self.applying)
-        button_apply.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_save = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Close)
-        button_save.accepted.connect(self.saving)
-        button_save.rejected.connect(self.close)
-        button_save.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_save = CompactButton("Save")
+        button_save.clicked.connect(self.saving)
+
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.close)
 
         # Set layout
         layout_button = QHBoxLayout()
@@ -126,6 +120,7 @@ class TyreCompoundEditor(BaseEditor):
         layout_button.addStretch(1)
         layout_button.addWidget(button_apply)
         layout_button.addWidget(button_save)
+        layout_button.addWidget(button_close)
         return layout_button
 
     def refresh_table(self):
@@ -215,7 +210,7 @@ class TyreCompoundEditor(BaseEditor):
     def reset_setting(self):
         """Reset setting"""
         msg_text = (
-            "Are you sure you want to reset compound preset to default?<br><br>"
+            "Reset <b>compounds preset</b> to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
         if self.confirm_operation(message=msg_text):

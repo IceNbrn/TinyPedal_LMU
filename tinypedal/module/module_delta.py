@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,28 +22,32 @@ Delta module
 
 from functools import partial
 
-from ._base import DataModule
-from ..module_info import minfo
-from ..api_control import api
 from .. import calculation as calc
-from .. import validator as val
+from ..api_control import api
+from ..const_common import (
+    DELTA_DEFAULT,
+    DELTA_ZERO,
+    FLOAT_INF,
+    MAX_SECONDS,
+    POS_XYZ_ZERO,
+)
+from ..module_info import minfo
 from ..userfile.delta_best import load_delta_best_file, save_delta_best_file
-
-DELTA_ZERO = 0.0,0.0
-DELTA_DEFAULT = (DELTA_ZERO,)
-MAGIC_NUM = 99999
-
-round6 = partial(round, ndigits=6)
+from ..validator import is_same_session, vehicle_position_sync
+from ._base import DataModule, round6
 
 
 class Realtime(DataModule):
     """Delta time data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
@@ -53,8 +57,8 @@ class Realtime(DataModule):
         last_session_id = ("",-1,-1,-1)
         delta_list_session = DELTA_DEFAULT
         delta_list_stint = DELTA_DEFAULT
-        laptime_session_best = MAGIC_NUM
-        laptime_stint_best = MAGIC_NUM
+        laptime_session_best = MAX_SECONDS
+        laptime_stint_best = MAX_SECONDS
         min_delta_distance = self.mcfg["minimum_delta_distance"]
 
         calc_ema_delta = partial(
@@ -66,9 +70,9 @@ class Realtime(DataModule):
             calc.ema_factor(min(max(self.mcfg["laptime_pace_samples"], 1), 20))
         )
         laptime_pace_margin = max(self.mcfg["laptime_pace_margin"], 0.1)
-        gen_position_sync = val.position_sync()
+        gen_position_sync = vehicle_position_sync()
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:
@@ -84,15 +88,15 @@ class Realtime(DataModule):
                     session_id = api.read.check.session_id()
 
                     # Reset delta session best if not same session
-                    if not val.same_session(combo_id, session_id, last_session_id):
+                    if not is_same_session(combo_id, session_id, last_session_id):
                         delta_list_session = DELTA_DEFAULT
-                        laptime_session_best = MAGIC_NUM
+                        laptime_session_best = MAX_SECONDS
                         last_session_id = (combo_id, *session_id)
 
                     delta_list_best, laptime_best = load_delta_best_file(
                         filepath=userpath_delta_best,
                         filename=combo_id,
-                        defaults=(DELTA_DEFAULT, MAGIC_NUM)
+                        defaults=(DELTA_DEFAULT, MAX_SECONDS)
                     )
                     output.deltaBestData = delta_list_best
                     delta_list_raw = [DELTA_ZERO]  # distance, laptime
@@ -107,14 +111,14 @@ class Realtime(DataModule):
                     laptime_last = 0.0  # last laptime
                     laptime_pace = laptime_best  # avearge laptime pace
 
-                    last_lap_stime = -1.0  # lap-start-time
+                    last_lap_stime = FLOAT_INF  # last lap start time
                     pos_recorded = 0.0  # last recorded vehicle position
                     pos_last = 0.0  # last checked vehicle position
                     pos_estimate = 0.0  # estimated vehicle position
                     pos_synced = 0.0  # synced estimated vehicle position
                     pos_synced_last = 0.0  # last synced estimated vehicle position
                     is_pos_synced = False  # vehicle position synced with API
-                    gps_last = (0.0,0.0,0.0)  # last global position
+                    gps_last = POS_XYZ_ZERO  # last global position
 
                 # Read telemetry
                 lap_stime = api.read.timing.start()
@@ -126,18 +130,19 @@ class Realtime(DataModule):
                 is_pit_lap |= in_pits
 
                 # Reset delta stint best if in pit and stopped
-                if in_pits and laptime_stint_best != MAGIC_NUM and api.read.vehicle.speed() < 0.1:
+                if in_pits and laptime_stint_best != MAX_SECONDS and api.read.vehicle.speed() < 0.1:
                     delta_list_stint = DELTA_DEFAULT
-                    laptime_stint_best = MAGIC_NUM
+                    laptime_stint_best = MAX_SECONDS
 
                 # Lap start & finish detection
-                if lap_stime > last_lap_stime != -1:
+                if lap_stime > last_lap_stime:
                     laptime_last = lap_stime - last_lap_stime
                     if len(delta_list_raw) > 1:  # set end value
                         delta_list_raw.append((round6(pos_last + 10), round6(laptime_last)))
                         delta_list_last = tuple(delta_list_raw)
                         validating = api.read.timing.elapsed()
-                    delta_list_raw = [DELTA_ZERO]  # reset
+                    delta_list_raw.clear()  # reset
+                    delta_list_raw.append(DELTA_ZERO)
                     pos_last = pos_recorded = pos_curr
                     recording = laptime_curr < 1
                     is_pit_lap = 0
@@ -165,7 +170,7 @@ class Realtime(DataModule):
                         # Update laptime pace
                         if not is_pit_lap:
                             # Set initial laptime if invalid, or align to faster laptime
-                            if not 0 < laptime_pace < MAGIC_NUM or laptime_valid < laptime_pace:
+                            if not 0 < laptime_pace < MAX_SECONDS or laptime_valid < laptime_pace:
                                 laptime_pace = laptime_valid
                             else:
                                 laptime_pace = min(

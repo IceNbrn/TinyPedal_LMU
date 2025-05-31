@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -25,18 +25,18 @@ import logging
 from PySide2.QtCore import Qt
 from PySide2.QtGui import QPixmap
 from PySide2.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
-    QDialogButtonBox,
-    QTextBrowser,
     QTabWidget,
+    QTextBrowser,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ..const import APP_NAME, VERSION, COPYRIGHT, DESCRIPTION, LICENSE, WEBSITE
-from ..file_constants import ImageFile
-from ._common import BaseDialog
+from ..const_app import APP_NAME, COPYRIGHT, DESCRIPTION, LICENSE, URL_WEBSITE, VERSION
+from ..const_file import ImageFile
+from ._common import BaseDialog, UIScaler
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ class About(BaseDialog):
     def __init__(self, parent):
         super().__init__(parent)
         self.setWindowTitle(f"About {APP_NAME}")
-        self.setStyleSheet("QTextEdit {border: 0;} QTextBrowser {font-size: 12px;}")
 
         # Tab
         main_tab = self.add_tabs()
@@ -62,12 +61,11 @@ class About(BaseDialog):
         # Layout
         layout_button = QHBoxLayout()
         layout_button.addWidget(button_close)
-        layout_button.setContentsMargins(3,3,7,7)
 
         layout_main = QVBoxLayout()
         layout_main.addWidget(main_tab)
         layout_main.addLayout(layout_button)
-        layout_main.setContentsMargins(3,3,3,3)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
         self.setFixedSize(self.sizeHint().width(), self.sizeHint().height())
 
@@ -100,7 +98,7 @@ class About(BaseDialog):
         """New text tab"""
         new_tab = QTextBrowser(self)
         new_tab.setText(text)
-        new_tab.setMinimumSize(400, 300)
+        new_tab.setMinimumSize(UIScaler.size(30), UIScaler.size(22))
         return new_tab
 
     def new_about_tab(self):
@@ -108,43 +106,38 @@ class About(BaseDialog):
         new_tab = QWidget(self)
 
         # Logo
-        icon_size = 128
         logo_image = QPixmap(ImageFile.APP_ICON)
-        logo_image = logo_image.scaled(icon_size, icon_size, mode=Qt.SmoothTransformation)
+        logo_image = logo_image.scaledToHeight(UIScaler.size(9), mode=Qt.SmoothTransformation)
 
         label_logo = QLabel()
         label_logo.setPixmap(logo_image)
-        label_logo.setFixedSize(icon_size+20, icon_size+20)
         label_logo.setAlignment(Qt.AlignCenter)
-        label_logo.setStyleSheet("padding: 10px;")
 
         # Description
         label_name = QLabel(APP_NAME)
-        label_name.setStyleSheet("font-size: 18px;")
+        label_name.setObjectName("labelAppName")
         label_name.setAlignment(Qt.AlignCenter)
 
-        label_version = QLabel(f"Version {VERSION}\n")
-        label_version.setStyleSheet("font-size: 13px;")
+        label_version = QLabel(f"Version {VERSION}")
         label_version.setAlignment(Qt.AlignCenter)
 
         label_desc = QLabel(
             f"<p>{COPYRIGHT}</p><p>{DESCRIPTION}</p><p>{LICENSE}</p>"
-            f"<p><a href={WEBSITE}>{WEBSITE}</a><br></p>",
+            f"<p><a href={URL_WEBSITE}>{URL_WEBSITE}</a></p>"
         )
-        label_desc.setStyleSheet("font-size: 12px;")
         label_desc.setAlignment(Qt.AlignCenter)
         label_desc.setOpenExternalLinks(True)
 
         # Layout
-        layout_logo = QHBoxLayout()
-        layout_logo.addWidget(label_logo)
-        layout_logo.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-
         layout_about = QVBoxLayout()
-        layout_about.addLayout(layout_logo)
+        layout_about.addSpacing(UIScaler.size(1))
+        layout_about.addWidget(label_logo)
+        layout_about.addSpacing(UIScaler.size(1))
         layout_about.addWidget(label_name)
         layout_about.addWidget(label_version)
+        layout_about.addSpacing(UIScaler.size(1))
         layout_about.addWidget(label_desc)
+        layout_about.addSpacing(UIScaler.size(1))
         layout_about.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
         new_tab.setLayout(layout_about)
         return new_tab

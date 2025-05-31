@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,40 +21,46 @@ Pace notes view & player
 """
 
 from __future__ import annotations
-import logging
 
-from PySide2.QtCore import Qt, QBasicTimer
-from PySide2.QtMultimedia import QMediaPlayer, QMediaContent
+import logging
+from typing import Callable
+
+from PySide2.QtCore import QBasicTimer, Qt, QUrl
+from PySide2.QtMultimedia import QMediaPlayer
 from PySide2.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QGridLayout,
-    QLabel,
-    QPushButton,
-    QFileDialog,
-    QLineEdit,
-    QFrame,
     QCheckBox,
     QComboBox,
-    QSlider,
     QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ..setting import cfg
-from ..module_info import minfo
-from .. import validator as val
-from ..overlay_control import octrl
+from .. import set_relative_path
+from ..const_app import QT_VERSION
+from ..const_file import FileFilter
 from ..module_control import mctrl
-from ..file_constants import FileFilter
+from ..module_info import minfo
+from ..overlay_control import octrl
+from ..setting import cfg
 from ..userfile.track_notes import COLUMN_PACENOTE
-from ._common import QSS_EDITOR_BUTTON
+from ._common import CompactButton, UIScaler
 
 logger = logging.getLogger(__name__)
 
 
 class PaceNotesPlayer(QMediaPlayer):
     """Pace notes player"""
+    set_source = None
+    set_volume = None
+    is_playing = None
 
     def __init__(self, parent, config: dict):
         super().__init__(parent)
@@ -69,9 +75,21 @@ class PaceNotesPlayer(QMediaPlayer):
         self._last_notes_index = None
         self._play_queue: list[str] = []
 
-    def set_volume(self, value: int):
-        """Set playback volume (separated for future compatibility)"""
-        self.setVolume(value)
+        # Set compatibility
+        if QT_VERSION[0] == "6":
+            from PySide6.QtMultimedia import QAudioOutput
+
+            audio_output = QAudioOutput()
+            self.setAudioOutput(audio_output)
+            # Assign methods for qt6
+            self.set_source = self.setSource
+            self.set_volume = audio_output.setVolume
+            self.is_playing = self.__is_playing_qt6
+        else:
+            # Assign methods for qt5
+            self.set_source = self.setMedia
+            self.set_volume = self.setVolume
+            self.is_playing = self.__is_playing_qt5
 
     def set_playback(self, enabled: bool):
         """Set playback state"""
@@ -107,9 +125,7 @@ class PaceNotesPlayer(QMediaPlayer):
             notes_index = minfo.pacenotes.currentIndex
             if self._last_notes_index != notes_index:
                 self._last_notes_index = notes_index
-                self.__update_queue(
-                    minfo.pacenotes.currentNote.get(COLUMN_PACENOTE, None)
-                )
+                self.__update_queue(minfo.pacenotes.currentNote.get(COLUMN_PACENOTE))
 
             if self._play_queue:
                 self.__play_next_in_queue()
@@ -117,6 +133,21 @@ class PaceNotesPlayer(QMediaPlayer):
         else:
             if self._checked:
                 self.reset_playback()
+
+    def __is_playing_qt5(self) -> bool:
+        """Check playing state (qt5 only)"""
+        return self.state() == QMediaPlayer.State.PlayingState
+
+    def __is_playing_qt6(self) -> bool:
+        """Check playing state (qt6 only)"""
+        return self.playbackState() == QMediaPlayer.PlayingState
+
+    def source_url(self) -> QUrl:
+        """Get sound source url"""
+        pace_note = self._play_queue[0]
+        sound_path = self.mcfg["pace_notes_sound_path"]
+        sound_format = self.mcfg["pace_notes_sound_format"].strip(".")
+        return QUrl(f"{sound_path}{pace_note}.{sound_format}")
 
     def __update_queue(self, pace_note: str | None):
         """Update playback queue"""
@@ -127,14 +158,11 @@ class PaceNotesPlayer(QMediaPlayer):
     def __play_next_in_queue(self):
         """Play next sound in playback queue"""
         # Wait if is playing & not exceeded max duration
-        if self.state() == QMediaPlayer.State.PlayingState:
-            if self.position() < self.mcfg["pace_notes_sound_max_duration"] * 1000:
-                return
+        if (self.is_playing() and
+            self.position() < self.mcfg["pace_notes_sound_max_duration"] * 1000):
+            return
         # Play next sound in queue
-        pace_note = self._play_queue[0]
-        sound_path = self.mcfg["pace_notes_sound_path"]
-        sound_format = self.mcfg["pace_notes_sound_format"].strip(".")
-        self.setMedia(QMediaContent(f"{sound_path}{pace_note}.{sound_format}"))
+        self.set_source(self.source_url())
         self.play()
         self._play_queue.pop(0)  # remove playing notes from queue
 
@@ -142,9 +170,9 @@ class PaceNotesPlayer(QMediaPlayer):
 class PaceNotesControl(QWidget):
     """Pace notes control"""
 
-    def __init__(self, parent):
+    def __init__(self, parent, notify_toggle: Callable):
         super().__init__(parent)
-        self.master = parent
+        self.notify_toggle = notify_toggle
         self.mcfg = cfg.user.setting["pace_notes_playback"]
         self.pace_notes_player = PaceNotesPlayer(self, self.mcfg)
 
@@ -154,16 +182,14 @@ class PaceNotesControl(QWidget):
 
         self.file_selector = QLineEdit()
         self.file_selector.setReadOnly(True)
-        self.button_openfile = QPushButton("Open")
-        self.button_openfile.setStyleSheet(QSS_EDITOR_BUTTON)
+        self.button_openfile = CompactButton("Open")
         self.button_openfile.clicked.connect(self.set_notes_path)
 
         # Sound path selector
         label_path = QLabel("Sound File Path:")
         self.path_selector = QLineEdit()
         self.path_selector.setReadOnly(True)
-        button_openpath = QPushButton("Open")
-        button_openpath.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_openpath = CompactButton("Open")
         button_openpath.clicked.connect(self.set_sound_path)
 
         # Sound file format
@@ -226,7 +252,8 @@ class PaceNotesControl(QWidget):
         layout_inner.addWidget(self.spinbox_max_queue, 3, 1)
 
         layout_setting = QVBoxLayout()
-        layout_setting.setContentsMargins(5,5,5,5)
+        margin = UIScaler.pixel(5)
+        layout_setting.setContentsMargins(margin, margin, margin, margin)
         layout_setting.addLayout(layout_file)
         layout_setting.addLayout(layout_inner)
         layout_setting.addStretch(1)
@@ -247,17 +274,19 @@ class PaceNotesControl(QWidget):
 
         layout_button = QHBoxLayout()
         layout_button.addWidget(self.button_apply)
-        layout_button.addStretch(stretch=1)
+        layout_button.addStretch(1)
         layout_button.addWidget(self.button_toggle)
 
         # Layout
         layout_main = QVBoxLayout()
         layout_main.addWidget(self.frame_control, stretch=1)
         layout_main.addLayout(layout_button)
+        margin = UIScaler.pixel(6)
+        layout_main.setContentsMargins(margin, margin, margin, margin)
         self.setLayout(layout_main)
-        self.refresh_state()
+        self.refresh()
 
-    def refresh_state(self):
+    def refresh(self):
         """Refresh state"""
         self.mcfg = cfg.user.setting["pace_notes_playback"]
         self.pace_notes_player.mcfg = self.mcfg
@@ -288,7 +317,7 @@ class PaceNotesControl(QWidget):
         filename_full = QFileDialog.getExistingDirectory(self, dir=filepath)
         if not filename_full:
             return
-        filename_full = val.relative_path(filename_full)
+        filename_full = set_relative_path(filename_full)
         self.path_selector.setText(filename_full)
         self.update_config("pace_notes_sound_path", filename_full)
 
@@ -334,7 +363,7 @@ class PaceNotesControl(QWidget):
         self.button_apply.setDisabled(not enabled)
         self.frame_control.setDisabled(not enabled)
         self.pace_notes_player.set_playback(enabled)
-        self.master.notify_pacenotes.setVisible(enabled)
+        self.notify_toggle(enabled)
 
     def update_config(self, key: str, value: int | float | str) -> bool:
         """Update pace note playback setting, save if changed"""

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,31 +20,32 @@
 Launcher
 """
 
-import os
-import sys
 import io
 import logging
-import psutil
+import os
+import sys
 
-from PySide2.QtGui import QIcon, QFont, QPixmapCache
+import psutil
+from PySide2.QtCore import QCoreApplication, Qt
+from PySide2.QtGui import QFont, QGuiApplication, QIcon, QPixmapCache
 from PySide2.QtWidgets import QApplication, QMessageBox
 
-from .cli_argument import get_cli_argument
-from .const import (
+from .const_app import (
     APP_NAME,
-    PLATFORM,
-    VERSION,
-    EXE_FILE,
-    PID_FILE,
     PATH_GLOBAL,
+    PID_FILE,
+    PLATFORM,
+    PSUTIL_VERSION,
+    PYSIDE_VERSION,
     PYTHON_VERSION,
     QT_VERSION,
-    PSUTIL_VERSION,
+    VERSION,
 )
-from .file_constants import ImageFile
+from .const_file import ConfigType, ImageFile
 from .log_handler import set_logging_level
+from .setting import cfg
 
-logger = logging.getLogger("tinypedal")
+logger = logging.getLogger(__package__)
 log_stream = io.StringIO()
 
 
@@ -75,17 +76,18 @@ def is_pid_exist() -> bool:
     return False  # no running
 
 
-def is_exe_running() -> bool:
-    """Check running executable (windows only), this is only used as fallback"""
-    # Skip exe check if not on windows system
-    if PLATFORM != "Windows":
-        return False
-    app_pid = os.getpid()
-    for app in psutil.process_iter(["name", "pid"]):
-        # Compare found APP name & pid
-        if app.info["name"] == EXE_FILE and app.info["pid"] != app_pid:
-            return True
-    return False
+#def is_exe_running() -> bool:
+#    """Check running executable (windows only), this is only used as fallback"""
+#    # Skip exe check if not on windows system
+#    if PLATFORM != "Windows":
+#        return False
+#    app_pid = os.getpid()
+#    EXE_FILE = "tinypedal.exe"
+#    for app in psutil.process_iter(["name", "pid"]):
+#        # Compare found APP name & pid
+#        if app.info["name"] == EXE_FILE and app.info["pid"] != app_pid:
+#            return True
+#    return False
 
 
 def single_instance_check(is_single_instance: bool):
@@ -93,12 +95,17 @@ def single_instance_check(is_single_instance: bool):
     # Check if single instance mode enabled
     if not is_single_instance:
         logger.info("Single instance mode: OFF")
-        return None
+        return
     logger.info("Single instance mode: ON")
-    # Check existing PID file first, then exe PID
-    if not (is_pid_exist() or is_exe_running()):
+    # Skip if restarted
+    if os.getenv("TINYPEDAL_RESTART") == "TRUE":
+        os.environ.pop("TINYPEDAL_RESTART", None)
         save_pid_file()
-        return None
+        return
+    # Check existing PID file first, then exe PID
+    if not is_pid_exist():  # (is_pid_exist() or is_exe_running())
+        save_pid_file()
+        return
     # Show warning to console and popup dialog
     warning_text = (
         "TinyPedal is already running.\n\n"
@@ -112,34 +119,84 @@ def single_instance_check(is_single_instance: bool):
 
 def version_check():
     """Check version"""
-    logger.info("TinyPedal %s", VERSION)
-    logger.info("Python %s", PYTHON_VERSION)
-    logger.info("Qt %s", QT_VERSION)
-    logger.info("psutil %s", PSUTIL_VERSION)
+    logger.info("TinyPedal: %s", VERSION)
+    logger.info("Python: %s", PYTHON_VERSION)
+    logger.info("Qt: %s", QT_VERSION)
+    logger.info("PySide: %s", PYSIDE_VERSION)
+    logger.info("psutil: %s", PSUTIL_VERSION)
 
 
 def init_gui() -> QApplication:
     """Initialize Qt Gui"""
+    if cfg.application["enable_high_dpi_scaling"]:
+        QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+        QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    QApplication.setStyle("Fusion")
     root = QApplication(sys.argv)
+    root.setQuitOnLastWindowClosed(False)
     root.setApplicationName(APP_NAME)
     root.setWindowIcon(QIcon(ImageFile.APP_ICON))
-    root.setQuitOnLastWindowClosed(False)
-    font = QFont("sans-serif", 10)
+    # Set window icon for X11/Wayland (workaround)
+    if PLATFORM != "Windows":
+        root.setDesktopFileName("svictor-TinyPedal")
+    # Set font
+    font = root.font()
+    font.setFamily("sans-serif")
+    font.setPointSize(10)
     font.setStyleHint(QFont.SansSerif)
     root.setFont(font)
-    root.setStyle("Fusion")
-    QPixmapCache.setCacheLimit(0)  # disable global cache
+    # Disable global pixmap cache
+    QPixmapCache.setCacheLimit(0)
+    logger.info("Platform plugin: %s", root.platformName())
     return root
 
 
-def start_app():
+def unset_environment():
+    """Clear any previous environment variable (required after auto-restarted APP)"""
+    os.environ.pop("QT_QPA_PLATFORM", None)
+    os.environ.pop("QT_ENABLE_HIGHDPI_SCALING", None)
+    os.environ.pop("QT_MEDIA_BACKEND", None)
+    os.environ.pop("QT_MULTIMEDIA_PREFERRED_PLUGINS", None)
+
+
+def set_environment():
+    """Set environment before starting GUI"""
+    # Windows only
+    if PLATFORM == "Windows":
+        if QT_VERSION[0] == "6":
+            os.environ["QT_MEDIA_BACKEND"] = "windows"
+        else:
+            if cfg.compatibility["multimedia_plugin_on_windows"] == "WMF":
+                multimedia_plugin = "windowsmediafoundation"
+            else:
+                multimedia_plugin = "directshow"
+            os.environ["QT_MULTIMEDIA_PREFERRED_PLUGINS"] = multimedia_plugin
+
+    # Linux only
+    else:
+        if cfg.compatibility["enable_x11_platform_plugin_override"]:
+            os.environ["QT_QPA_PLATFORM"] = "xcb"
+
+    # Common
+    if cfg.application["enable_high_dpi_scaling"]:
+        logger.info("High DPI scaling: ON")
+    else:
+        os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"  # force disable (qt6 only)
+        logger.info("High DPI scaling: OFF")
+
+
+def start_app(cli_args):
     """Init main window"""
-    cli_args = get_cli_argument()
+    unset_environment()
     set_logging_level(logger, log_stream, cli_args.log_level)
+    version_check()
+    # load global config
+    cfg.load_global()
+    cfg.save(cfg_type=ConfigType.CONFIG)
+    set_environment()
     # Main GUI
     root = init_gui()
     single_instance_check(cli_args.single_instance)
-    version_check()
     # Load core modules
     from . import loader
     loader.start()

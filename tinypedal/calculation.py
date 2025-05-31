@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,9 +21,12 @@ Calculation function
 """
 
 from __future__ import annotations
-from typing import Tuple, Sequence
-from math import dist, hypot, degrees, radians, atan, atan2, sin, cos, acos, ceil
+
+from math import acos, atan, atan2, ceil, cos, degrees, dist, hypot, radians, sin
 from statistics import fmean, stdev
+from typing import Sequence, Tuple
+
+from .const_common import FLOAT_INF
 
 CoordXY = Tuple[float, float]
 
@@ -34,72 +37,6 @@ rad2deg = degrees  # radians to degrees
 oriyaw2rad = atan2  # orientation yaw to radians
 std_dev = stdev  # sample standard deviation
 deg2rad = radians  # degrees to radians
-
-
-# Unit conversion
-def meter2millmeter(meter: float) -> float:
-    """Convert meter to millimeter"""
-    return meter * 1000
-
-
-def meter2feet(meter: float) -> float:
-    """Convert meter to feet"""
-    return meter * 3.2808399
-
-
-def meter2kilometer(meter: float) -> float:
-    """Convert meter to kilometer"""
-    return meter * 0.001
-
-
-def meter2mile(meter: float) -> float:
-    """Convert meter to mile"""
-    return meter / 1609.344
-
-
-def mps2kph(meter: float) -> float:
-    """meter per sec to kilometers per hour"""
-    return meter * 3.6
-
-
-def mps2mph(meter: float) -> float:
-    """Meter per sec to miles per hour"""
-    return meter * 2.23693629
-
-
-def celsius2fahrenheit(temperature: float) -> float:
-    """Celsius to Fahrenheit"""
-    return temperature * 1.8 + 32
-
-
-def liter2gallon(liter: float) -> float:
-    """Liter to Gallon"""
-    return liter * 0.26417205
-
-
-def kelvin2celsius(kelvin: float) -> float:
-    """Kelvin to Celsius"""
-    return kelvin - 273.15
-
-
-def kpa2psi(kilopascal: float) -> float:
-    """Kilopascal to psi"""
-    return kilopascal * 0.14503774
-
-
-def kpa2bar(kilopascal: float) -> float:
-    """Kilopascal to bar"""
-    return kilopascal * 0.01
-
-
-def kw2hp(kilowatt: float) -> float:
-    """Kilowatt to imperial horsepower (hp)"""
-    return kilowatt * 1.341
-
-
-def kw2ps(kilowatt: float) -> float:
-    """Kilowatt to metric horsepower (ps)"""
-    return kilowatt * 1.3596
 
 
 # Common
@@ -142,8 +79,10 @@ def zero_one(value: float) -> float:
 def decimal_strip(raw_range: float, max_decimals: int) -> float:
     """Strip off unwanted decimal places according to max number of decimals"""
     value_str = str(raw_range)
-    decimal_slice = len(value_str) - len(value_str.split(".")[-1]) + max_decimals
-    return float(value_str[:decimal_slice])
+    pos = value_str.find(".") + 1
+    if pos <= 0:
+        return raw_range
+    return float(value_str[:pos + max_decimals])
 
 
 def mean_iter(average: float, value: float, num_samples: int) -> float:
@@ -366,9 +305,14 @@ def clock_time(seconds: float, start: int = 0, scale: int = 1) -> float:
     return time_curr - time_curr // 86400 * 86400
 
 
+def sec2hourminute(seconds: float) -> str:
+    """Seconds to hour:minute (hour:min)"""
+    return f"{seconds // 3600:02.0f}:{seconds // 60 % 60:02.0f}"
+
+
 def sec2sessiontime(seconds: float) -> str:
     """Session time (hour:min:sec)"""
-    return f"{seconds // 3600:02.0f}:{seconds // 60 % 60:02.0f}:{min(seconds % 60, 59):02.0f}"
+    return f"{seconds // 3600:02.0f}:{seconds // 60 % 60:02.0f}:{round(seconds) % 60:02.0f}"
 
 
 def sec2laptime(seconds: float) -> str:
@@ -385,7 +329,7 @@ def sec2laptime_full(seconds: float) -> str:
 
 def sec2stinttime(seconds: float) -> str:
     """Stint time (min:sec)"""
-    return f"{seconds // 60:02.0f}:{min(seconds % 60, 59):02.0f}"
+    return f"{seconds // 60:02.0f}:{round(seconds) % 60:02.0f}"
 
 
 def delta_telemetry(
@@ -405,6 +349,28 @@ def delta_telemetry(
             dataset[index_higher][1],
         )
     return 0
+
+
+def delta_laptime(plr_data: Sequence[float], opt_data: Sequence[float], max_output: int):
+    """Generate delta from lap time data set between player and opponent"""
+    for index in range(5 - max_output, 5):  # max 5 records
+        if plr_data[index] > 0 < opt_data[index]:  # check invalid lap time
+            yield plr_data[index] - opt_data[index]
+        else:
+            yield 99999.0
+
+
+def clock_time_scale_sync(scaled_sec: float, elapsed_sec: float, start_sec: float) -> int:
+    """Synchronize clock time scale multiplier
+
+    Args:
+        scaled_sec: scaled track clock time (seconds)
+        elapsed_sec: current non-scaled session elapsed time (seconds)
+        start_sec: current session start time stamp (seconds)
+    """
+    if elapsed_sec:
+        return round((scaled_sec // 86400 * 86400 + scaled_sec - start_sec) / elapsed_sec)
+    return 1
 
 
 def exp_mov_avg(factor: float, ema_last: float, source: float) -> float:
@@ -434,7 +400,7 @@ def linear_search_higher(data: Sequence, target: float, column: int | None = Non
     """linear search nearest value higher index from unordered list"""
     #key = lambda x:x[column] if column >= 0 else x
     end = len(data) - 1
-    nearest = float("inf")
+    nearest = FLOAT_INF
     for index, data_row in enumerate(data):
         if target <= search_column_key(data_row, column) < nearest:
             nearest = search_column_key(data_row, column)
@@ -483,7 +449,7 @@ def binary_search_lower_column(
 
 
 def binary_search_higher_column(
-    data: Sequence, target: float, start: int, end: int, column: int = 0) -> int:
+    data: Sequence[Sequence], target: float, start: int, end: int, column: int = 0) -> int:
     """Binary search nearest value higher index from ordered list with column index"""
     while start < end:
         center = (start + end) // 2
@@ -496,14 +462,14 @@ def binary_search_higher_column(
     return end
 
 
-def select_grade(data: Sequence, source: float) -> str:
-    """Select grade (linear lower index) from reference list (column: 0 value, 1 string)"""
-    for index, target in enumerate(data):
-        if target[0] > source:
-            if index == 0:
-                return target[1]
-            return data[index - 1][1]
-    return data[-1][1]  # set from last row if exceeded max range
+def select_grade(data: Sequence[Sequence], source: float) -> str:
+    """Select grade (linear lower) from reference list (column: 0 target, 1 value)"""
+    last = data[0][1]
+    for target, value in data:
+        if target > source:
+            return last
+        last = value
+    return last
 
 
 # Plot
@@ -513,18 +479,28 @@ def zoom_map(coords: Sequence[CoordXY], map_scale: float, margin: int = 0):
     x_range, y_range = tuple(zip(*coords))
     # Offset X, Y
     map_offset = min(x_range) * map_scale - margin, min(y_range) * map_scale - margin
-    # Scale map coordinates
-    x_range_scaled = [x_pos * map_scale - map_offset[0] for x_pos in x_range]
-    y_range_scaled = [y_pos * map_scale - map_offset[1] for y_pos in y_range]
     # Map width, height
-    map_size = max(x_range_scaled) + margin, max(y_range_scaled) + margin
+    map_size = max(x_range) * map_scale + margin, max(y_range) * map_scale + margin
+    # Scale map coordinates
+    x_range_scaled = (x_pos * map_scale - map_offset[0] for x_pos in x_range)
+    y_range_scaled = (y_pos * map_scale - map_offset[1] for y_pos in y_range)
     return tuple(zip(x_range_scaled, y_range_scaled)), map_size, map_offset
 
 
-def scale_map(coords: Sequence[CoordXY], area_size: int, margin: int = 0):
+def rotate_map(coords: Sequence[CoordXY], angle: int):
+    """Rotate map coordinates"""
+    rot_rad = deg2rad(angle)
+    for x, y in coords:
+        yield rotate_coordinate(rot_rad, x, y)
+
+
+def scale_map(coords: Sequence[CoordXY], area_size: int, margin: int = 0, angle: int = 0):
     """Scale map data"""
-    # Separate X & Y coordinates
-    x_range, y_range = tuple(zip(*coords))
+    # Rotate & separate X & Y coordinates
+    if angle != 0:
+        x_range, y_range = tuple(zip(*rotate_map(coords, angle)))
+    else:
+        x_range, y_range = tuple(zip(*coords))
     # Map size: x=width, y=height
     map_range = min(x_range), max(x_range), min(y_range), max(y_range)
     map_size = map_range[1] - map_range[0], map_range[3] - map_range[2]
@@ -535,11 +511,9 @@ def scale_map(coords: Sequence[CoordXY], area_size: int, margin: int = 0):
         map_offset = margin, (area_size - map_size[1] * map_scale) * 0.5
     else:
         map_offset = (area_size - map_size[0] * map_scale) * 0.5, margin
-    x_range_scaled = [(x_pos - map_range[0]) * map_scale + map_offset[0]
-                        for x_pos in x_range]
-    y_range_scaled = [(y_pos - map_range[2]) * map_scale + map_offset[1]
-                        for y_pos in y_range]
-    return list(zip(x_range_scaled, y_range_scaled)), map_range, map_scale, map_offset
+    x_range_scaled = ((x_pos - map_range[0]) * map_scale + map_offset[0] for x_pos in x_range)
+    y_range_scaled = ((y_pos - map_range[2]) * map_scale + map_offset[1] for y_pos in y_range)
+    return tuple(zip(x_range_scaled, y_range_scaled)), map_range, map_scale, map_offset
 
 
 def scale_elevation(coords: Sequence[CoordXY], area_width: int, area_height: int):
@@ -551,11 +525,9 @@ def scale_elevation(coords: Sequence[CoordXY], area_width: int, area_height: int
     map_size = map_range[1] - map_range[0], map_range[3] - map_range[2]
     # Display area / map_size
     map_scale = area_width / map_size[0], area_height / map_size[1]
-    x_range_scaled = [(x_pos - map_range[0]) * map_scale[0]
-                        for x_pos in x_range]
-    y_range_scaled = [(y_pos - map_range[2]) * map_scale[1]
-                        for y_pos in y_range]
-    return list(zip(x_range_scaled, y_range_scaled)), map_range, map_scale
+    x_range_scaled = ((x_pos - map_range[0]) * map_scale[0] for x_pos in x_range)
+    y_range_scaled = ((y_pos - map_range[2]) * map_scale[1] for y_pos in y_range)
+    return tuple(zip(x_range_scaled, y_range_scaled)), map_range, map_scale
 
 
 def svg_view_box(coords: Sequence[CoordXY], margin: int = 0) -> str:
@@ -570,6 +542,15 @@ def svg_view_box(coords: Sequence[CoordXY], margin: int = 0) -> str:
     x2 = map_size[0] + margin * 2
     y2 = map_size[1] + margin * 2
     return f"{x1:.4f} {y1:.4f} {x2:.4f} {y2:.4f}"
+
+
+def skip_map_nodes(total: int, limit: int, detail_level: int) -> int:
+    """Skip map nodes"""
+    if detail_level <= 0:
+        skip_node = 0
+    else:
+        skip_node = total // limit + (detail_level - 1)
+    return skip_node
 
 
 def line_intersect_coords(
@@ -674,6 +655,7 @@ def pit_in_countdown_laps(laps_remain: float, lap_into: float) -> float:
 
 def end_lap_empty_capacity(capacity_total: float, fuel_in_tank: float, consumption: float) -> float:
     """Estimate empty capacity at end of current lap"""
+    # Total capacity - fuel at start of current lap + estimate fuel consumption
     return capacity_total - fuel_in_tank + consumption
 
 
@@ -687,12 +669,14 @@ def end_stint_pit_counts(fuel_needed: float, capacity_total: float) -> float:
 
 def end_lap_pit_counts(fuel_needed: float, capacity_empty: float, capacity_total: float) -> float:
     """Estimate end-lap pit stop counts"""
+    if capacity_empty < 0:
+        capacity_empty = 0
     # Amount fuel can be added without exceeding capacity
     fuel_addable = min(fuel_needed, capacity_empty)
     # Pit count of current stint, 1 if exceed empty capacity or no empty space
     pit_counts_before = fuel_addable / capacity_empty if capacity_empty else 1
     # Pit counts after current stint
-    pit_counts_after = (fuel_needed - fuel_addable) / capacity_total
+    pit_counts_after = (fuel_needed - fuel_addable) / capacity_total if capacity_total else 0
     # Total pit counts add together
     return pit_counts_before + pit_counts_after
 
@@ -715,16 +699,6 @@ def fuel_to_energy_ratio(fuel: float, energy: float) -> float:
 
 
 # Wear
-def wear_difference(wear_curr: float, wear_prev: float, wear_total: float) -> tuple[float, float]:
-    """Wear difference and accumulated total wear"""
-    if wear_prev < wear_curr:
-        wear_prev = wear_curr
-    elif wear_prev > wear_curr:
-        wear_total += wear_prev - wear_curr
-        wear_prev = wear_curr
-    return wear_prev, wear_total
-
-
 def wear_lifespan_in_laps(
     wear_curr: float, wear_last_lap: float, wear_curr_lap: float) -> float:
     """Wear lifespan in laps = remaining / last lap wear"""
@@ -734,7 +708,9 @@ def wear_lifespan_in_laps(
         est_laps = wear_curr / wear_last_lap
     else:
         est_laps = 999
-    return min(est_laps, 999)
+    if est_laps > 999:
+        est_laps = 999
+    return est_laps
 
 
 def wear_lifespan_in_mins(
@@ -748,7 +724,9 @@ def wear_lifespan_in_mins(
         est_mins = wear_curr / wear_last_lap * laptime / 60
     else:
         est_mins = 999
-    return min(est_mins, 999)
+    if est_mins > 999:
+        est_mins = 999
+    return est_mins
 
 
 # Wheel

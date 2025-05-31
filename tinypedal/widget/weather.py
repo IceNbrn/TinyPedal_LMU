@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,11 +20,11 @@
 Weather Widget
 """
 
-from .. import calculation as calc
 from ..api_control import api
+from ..units import set_symbol_temperature, set_unit_temperature
 from ._base import Overlay
 
-TREND_SIGN = "●▲▼"
+TEXT_TREND_SIGN = "●▲▼"  # 0 = constant, 1 = increasing, -1 = decreasing
 
 
 class Realtime(Overlay):
@@ -42,8 +42,6 @@ class Realtime(Overlay):
 
         # Config variable
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
-        self.sign_temp = "°F" if self.cfg.units["temperature_unit"] == "Fahrenheit" else "°C"
-
         prefix_wetness_just = max(
             len(self.wcfg["prefix_dry"]),
             len(self.wcfg["prefix_wet"]),
@@ -53,6 +51,13 @@ class Realtime(Overlay):
             self.wcfg["prefix_dry"].ljust(prefix_wetness_just),
             self.wcfg["prefix_wet"].ljust(prefix_wetness_just)
         )
+        decimals = min(max(self.wcfg["decimal_places_temperature"], 0), 6)
+        self.temp_cut = 2 + (self.cfg.units["temperature_unit"] == "Fahrenheit") + (decimals != 0) + decimals
+        self.temp_digits = f"0{self.temp_cut + round(0.1 + decimals * 0.1, decimals)}f"
+
+        # Config units
+        self.unit_temp = set_unit_temperature(self.cfg.units["temperature_unit"])
+        self.symbol_temp = set_symbol_temperature(self.cfg.units["temperature_unit"])
 
         # Base style
         self.setStyleSheet(self.set_qss(
@@ -64,7 +69,9 @@ class Realtime(Overlay):
         # Track temperature
         if self.wcfg["show_temperature"]:
             layout_temp = self.set_grid_layout()
-            text_temp = self.format_temperature(0, 0)
+            track_temp = f"{self.unit_temp(0):{self.temp_digits}}"[:self.temp_cut]
+            air_temp = f"{self.unit_temp(0):{self.temp_digits}}"[:self.temp_cut]
+            text_temp = f"{track_temp}({air_temp}){self.symbol_temp}"
             bar_style_temp = self.set_qss(
                 fg_color=self.wcfg["font_color_temperature"],
                 bg_color=self.wcfg["bkg_color_temperature"]
@@ -89,7 +96,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_temperature"]),
             )
             self.bar_temp_trend = self.set_qlabel(
-                text=TREND_SIGN[0],
+                text=TEXT_TREND_SIGN[0],
                 style=self.bar_style_temp_trend[0],
                 width=font_m.width + bar_padx,
                 last=0,
@@ -105,7 +112,7 @@ class Realtime(Overlay):
         # Rain precipitation
         if self.wcfg["show_rain"]:
             layout_rain = self.set_grid_layout()
-            text_rain = self.format_rain(0)
+            text_rain = f"{self.prefix_rain}  0%"
             bar_style_rain = self.set_qss(
                 fg_color=self.wcfg["font_color_rain"],
                 bg_color=self.wcfg["bkg_color_rain"]
@@ -130,7 +137,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_rain"]),
             )
             self.bar_raininess_trend = self.set_qlabel(
-                text=TREND_SIGN[0],
+                text=TEXT_TREND_SIGN[0],
                 style=self.bar_style_raininess_trend[0],
                 width=font_m.width + bar_padx,
                 last=0,
@@ -146,7 +153,7 @@ class Realtime(Overlay):
         # Surface wetness
         if self.wcfg["show_wetness"]:
             layout_wetness = self.set_grid_layout()
-            text_wetness = self.format_wetness(0)
+            text_wetness = f"{self.prefix_wetness[0]}  0%"
             bar_style_wetness = self.set_qss(
                 fg_color=self.wcfg["font_color_wetness"],
                 bg_color=self.wcfg["bkg_color_wetness"]
@@ -171,7 +178,7 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_wetness"]),
             )
             self.bar_wetness_trend = self.set_qlabel(
-                text=TREND_SIGN[0],
+                text=TEXT_TREND_SIGN[0],
                 style=self.bar_style_wetness_trend[0],
                 width=font_m.width + bar_padx,
                 last=0,
@@ -234,64 +241,55 @@ class Realtime(Overlay):
         """Track & ambient temperature"""
         if target.last != data:
             target.last = data
-            target.setText(self.format_temperature(track, air))
+            track_temp = f"{self.unit_temp(track):{self.temp_digits}}"[:self.temp_cut]
+            air_temp = f"{self.unit_temp(air):{self.temp_digits}}"[:self.temp_cut]
+            target.setText(f"{track_temp}({air_temp}){self.symbol_temp}")
 
     def update_temperature_trend(self, target, data):
         """Temperature trend"""
         if target.last != data:
             target.last = data
-            target.setText(TREND_SIGN[data])
+            target.setText(TEXT_TREND_SIGN[data])
             target.setStyleSheet(self.bar_style_temp_trend[data])
 
     def update_raininess(self, target, data):
         """Rain percentage"""
         if target.last != data:
             target.last = data
-            target.setText(self.format_rain(data))
+            percent_rain = f"{data: >3.0%}"[:3]
+            target.setText(f"{self.prefix_rain} {percent_rain}")
 
     def update_raininess_trend(self, target, data):
         """Raininess trend"""
         if target.last != data:
             target.last = data
-            target.setText(TREND_SIGN[data])
+            target.setText(TEXT_TREND_SIGN[data])
             target.setStyleSheet(self.bar_style_raininess_trend[data])
 
     def update_wetness(self, target, data, wet_average):
         """Surface wetness percentage"""
         if target.last != data:
             target.last = data
-            target.setText(self.format_wetness(wet_average))
+            percent_wet = f"{wet_average: >3.0%}"[:3]
+            target.setText(f"{self.prefix_wetness[wet_average > 0.01]} {percent_wet}")
 
     def update_wetness_trend(self, target, data):
         """Surface wetness trend"""
         if target.last != data:
             target.last = data
-            target.setText(TREND_SIGN[data])
+            target.setText(TEXT_TREND_SIGN[data])
             target.setStyleSheet(self.bar_style_wetness_trend[data])
-
-    def format_temperature(self, track_deg, air_deg):
-        """Format track & ambient temperature"""
-        if self.cfg.units["temperature_unit"] == "Fahrenheit":
-            track = f"{calc.celsius2fahrenheit(track_deg):05.2f}"[:5]
-            air = f"{calc.celsius2fahrenheit(air_deg):03.0f}"[:3]
-        else:
-            track = f"{track_deg: >4.2f}"[:4]
-            air = f"{air_deg: >4.2f}"[:4]
-        return f"{track}({air}){self.sign_temp}"
-
-    def format_rain(self, rain):
-        """Format rain percentage"""
-        percentage = f"{rain: >3.0%}"[:3]
-        return f"{self.prefix_rain} {percentage}"
-
-    def format_wetness(self, wetness):
-        """Format wetness percentage"""
-        percentage = f"{wetness: >3.0%}"[:3]
-        return f"{self.prefix_wetness[wetness > 0.01]} {percentage}"
 
 
 class TrendTimer:
     """Trend timer"""
+
+    __slots__ = (
+        "_trend_interval",
+        "_last_reading",
+        "_trend",
+        "_timer",
+    )
 
     def __init__(self, trend_interval: float) -> None:
         """

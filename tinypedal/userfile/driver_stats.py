@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,22 +21,22 @@ Driver stats file function
 """
 
 from __future__ import annotations
-import logging
+
 import json
+import logging
 from dataclasses import dataclass
-from typing import KeysView
+from time import sleep
+from typing import KeysView, get_type_hints
 
-from ..file_constants import FileExt
-from ..userfile.json_setting import (
-    set_backup_timestamp,
-    save_compact_json_file,
-    verify_json_file,
+from ..const_common import MAX_SECONDS
+from ..const_file import FileExt, StatsFile
+from ..validator import convert_value_type
+from .json_setting import (
     create_backup_file,
-    delete_backup_file,
-    restore_backup_file,
+    save_and_verify_json_file,
+    save_json_file,
+    set_backup_timestamp,
 )
-
-STATS_FILENAME = "driver"
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class DriverStats:
     """Driver stats data"""
 
-    pb: float = 99999.0  # personal best lap time
+    pb: float = MAX_SECONDS  # personal best lap time
     meters: float = 0.0  # meters driven
     seconds: float = 0.0  # seconds spent
     liters: float = 0.0  # fuel consumed
@@ -78,18 +78,18 @@ def validate_stats_file(stats_user: dict) -> dict:
     return stats_user
 
 
-def purge_keys(target_dict: dict) -> dict:
+def purge_keys(loaded_dict: dict) -> dict:
     """Purge unwanted key name"""
     ref_keys = DriverStats.keys()
-    for key in tuple(target_dict):
+    for key in tuple(loaded_dict):
         if key not in ref_keys:
-            target_dict.pop(key)
-    return target_dict
+            loaded_dict.pop(key)
+    return loaded_dict
 
 
 def get_sub_dict(source: dict, key_name: str) -> dict:
     """Get sub dict, create new if not exist"""
-    sub_dict = source.get(key_name, None)
+    sub_dict = source.get(key_name)
     if not isinstance(sub_dict, dict):
         source[key_name] = {}
         sub_dict = source[key_name]
@@ -97,78 +97,112 @@ def get_sub_dict(source: dict, key_name: str) -> dict:
 
 
 def load_driver_stats(
-    key_list: tuple[str, ...], filepath: str
+    key_list: tuple[str, str], filepath: str, filename: str = StatsFile.DRIVER
 ) -> DriverStats:
     """Load driver stats"""
     stats_user = load_stats_json_file(
         filepath=filepath,
-        filename=STATS_FILENAME,
+        filename=filename,
     )
+    if stats_user is None:
+        return DriverStats()
     # Get data from matching key
-    target_dict = stats_user
+    loaded_dict = stats_user
     for key in key_list:
-        target_dict = target_dict.get(key, None)
-        if not isinstance(target_dict, dict):  # not exist, set to default
+        loaded_dict = loaded_dict.get(key)
+        if not isinstance(loaded_dict, dict):  # not exist, set to default
             return DriverStats()
     # Add data to DriverStats
     try:
-        return DriverStats(**purge_keys(target_dict))
-    except (KeyError, ValueError, TypeError):
+        return DriverStats(**purge_keys(loaded_dict))
+    except (AttributeError, TypeError, KeyError, ValueError):
         return DriverStats()
 
 
 def save_driver_stats(
-    key_list: tuple[str, ...], stats_update: DriverStats, filepath: str
+    key_list: tuple[str, str], stats_update: DriverStats, filepath: str, filename: str = StatsFile.DRIVER
 ) -> None:
     """Save driver stats"""
     if not key_list or not all(key_list):  # ignore invalid key name
         return
-    stats_user = load_stats_json_file(
-        filepath=filepath,
-        filename=STATS_FILENAME,
-    )
+    # Load stats with limited attempts
+    load_attempts = 10
+    while load_attempts > 0:
+        stats_user = load_stats_json_file(
+            filepath=filepath,
+            filename=filename,
+            show_log=False,
+        )
+        if stats_user is not None:
+            break
+        load_attempts -= 1
+        logger.info("USERDATA: unable to load %s%s, %s attempt(s) left", filename, FileExt.STATS, load_attempts)
+        sleep(0.05)
+    # Create backup if failed to load stats
+    if stats_user is None:
+        logger.info("USERDATA: unable to load %s%s, creating backup", filename, FileExt.STATS)
+        if not create_backup_file(f"{filename}{FileExt.STATS}", filepath, set_backup_timestamp(), show_log=True):
+            return  # abort saving if failed to create backup
+        stats_user = {}  # reset stats
     # Get data from matching key
-    target_dict = stats_user
+    loaded_dict = stats_user
     for key in key_list:
-        target_dict = get_sub_dict(target_dict, key)
-    # Update & save new data
-    purge_keys(target_dict).update(stats_update.__dict__)
+        loaded_dict = get_sub_dict(loaded_dict, key)
+    # Verify and update new data
+    default_dict = DriverStats.__dict__
+    default_type = get_type_hints(DriverStats)
+    for key, value in stats_update.__dict__.items():
+        # Add new default value if not exists
+        if key not in loaded_dict:
+            loaded_dict[key] = default_dict[key]
+        # Check value type, auto correct if mismatch
+        if not isinstance(loaded_dict[key], default_type[key]):
+            loaded_dict[key] = convert_value_type(loaded_dict[key], default_dict[key], default_type[key])
+        # Update laptime value faster than old value
+        if key == "pb":
+            if loaded_dict[key] > value:
+                loaded_dict[key] = value
+            continue
+        # Update value (increment)
+        loaded_dict[key] += value
+    # Save new data
     save_stats_json_file(
         stats_user=stats_user,
         filepath=filepath,
-        filename=STATS_FILENAME,
+        filename=filename,
     )
 
 
 def load_stats_json_file(
-    filename: str, filepath: str, extension: str = FileExt.STATS
-) -> dict:
-    """Load stats json file & verify"""
+    filepath: str, filename: str = StatsFile.DRIVER, extension: str = FileExt.STATS, show_log: bool = True
+) -> dict | None:
+    """Load stats json file, create new if not exists, or returns "None" if invalid"""
     try:
-        # Read JSON file
         with open(f"{filepath}{filename}{extension}", "r", encoding="utf-8") as jsonfile:
             stats_user = json.load(jsonfile)
             if not isinstance(stats_user, dict):
                 raise TypeError
             return stats_user
     except FileNotFoundError:
-        logger.info("MISSING: %s stats (%s) data", filename, extension)
+        if show_log:
+            logger.info("MISSING: %s stats (%s) data, create new stats", filename, extension)
+        stats_user = {}
+        save_json_file(stats_user, filename, filepath, extension, compact_json=True)
+        return stats_user
     except (AttributeError, TypeError, KeyError, ValueError):
-        logger.info("MISSING: invalid %s stats (%s) data", filename, extension)
-        create_backup_file(f"{filename}{extension}", filepath, set_backup_timestamp(), show_log=True)
-    stats_user = {}
-    save_compact_json_file(stats_user, filename, filepath, extension)
-    return stats_user
+        if show_log:
+            logger.info("MISSING: invalid %s stats (%s) data", filename, extension)
+    return None
 
 
 def save_stats_json_file(
-    stats_user: dict, filename: str, filepath: str, extension: str = FileExt.STATS
+    stats_user: dict, filepath: str, filename: str = StatsFile.DRIVER, extension: str = FileExt.STATS
 ) -> None:
     """Save stats to json file"""
-    create_backup_file(f"{filename}{extension}", filepath)
-    save_compact_json_file(stats_user, filename, filepath, extension)
-    if not verify_json_file(stats_user, filename, filepath, extension):
-        restore_backup_file(f"{filename}{extension}", filepath)
-    else:
-        logger.info("USERDATA: %s%s saved", filename, extension)
-    delete_backup_file(f"{filename}{extension}", filepath)
+    save_and_verify_json_file(
+        dict_user=stats_user,
+        filename=f"{filename}{extension}",
+        filepath=filepath,
+        max_attempts=10,
+        compact_json=True,
+    )

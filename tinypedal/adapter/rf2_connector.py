@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,21 +21,31 @@ rF2 API connector
 """
 
 from __future__ import annotations
+
 import logging
 import threading
 from copy import copy
-from typing import Sequence
 from time import monotonic, sleep
-
+from typing import Sequence
 
 logger = logging.getLogger(__name__)
 
 try:
-    from pyRfactor2SharedMemory.rF2MMap import MAX_VEHICLES, INVALID_INDEX, rF2data, MMapControl
+    from pyRfactor2SharedMemory.rF2MMap import (
+        INVALID_INDEX,
+        MAX_VEHICLES,
+        MMapControl,
+        rF2data,
+    )
 except ImportError:
     import sys
     sys.path.append(".")
-    from pyRfactor2SharedMemory.rF2MMap import MAX_VEHICLES, INVALID_INDEX, rF2data, MMapControl
+    from pyRfactor2SharedMemory.rF2MMap import (
+        INVALID_INDEX,
+        MAX_VEHICLES,
+        MMapControl,
+        rF2data,
+    )
 
 
 def local_scoring_index(scor_veh: Sequence[rF2data.rF2VehicleScoring]) -> int:
@@ -224,6 +234,7 @@ class SyncData:
     def __update(self) -> None:
         """Update synced player data"""
         self.paused = False  # make sure initial pause state is false
+        _event_wait = self._event.wait
         freezed_version = 0  # store freezed update version number
         last_version_update = 0  # store last update version number
         last_update_time = 0.0
@@ -231,7 +242,7 @@ class SyncData:
         reset_counter = 0
         update_delay = 0.5  # longer delay while inactive
 
-        while not self._event.wait(update_delay):
+        while not _event_wait(update_delay):
             self.dataset.update_mmap()
             self.__update_tele_indexes(self.dataset.tele.data, self._tele_indexes)
             # Update player data & index

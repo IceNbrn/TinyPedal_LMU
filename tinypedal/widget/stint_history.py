@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -23,9 +23,10 @@ Stint history Widget
 from collections import deque
 
 from .. import calculation as calc
-from .. import heatmap as hmp
 from ..api_control import api
 from ..module_info import minfo
+from ..units import set_unit_fuel
+from ..userfile.heatmap import select_compound_symbol
 from ._base import Overlay
 
 
@@ -46,6 +47,9 @@ class Realtime(Overlay):
         layout_reversed = self.wcfg["layout"] != 0
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         stint_slot = max(self.wcfg["stint_history_count"], 1)
+
+        # Config units
+        self.unit_fuel = set_unit_fuel(self.cfg.units["fuel_unit"])
 
         # Base style
         self.setStyleSheet(self.set_qss(
@@ -203,7 +207,7 @@ class Realtime(Overlay):
             if self.wcfg["show_virtual_energy_if_available"] and minfo.restapi.maxVirtualEnergy:
                 fuel_curr = minfo.energy.amountCurrent
             else:
-                fuel_curr = self.fuel_units(minfo.fuel.amountCurrent)
+                fuel_curr = self.unit_fuel(minfo.fuel.amountCurrent)
 
             if not in_pits:
                 self.last_fuel_curr = fuel_curr
@@ -226,16 +230,17 @@ class Realtime(Overlay):
                 self.start_fuel = fuel_curr
                 self.start_wear = wear_avg
                 self.reset_stint = False
+                # Update compound info once per stint
+                class_name = api.read.vehicle.class_name()
+                self.stint_data[0] = "".join(
+                    select_compound_symbol(f"{class_name} - {tcmpd_name}")
+                    for tcmpd_name in api.read.tyre.compound_name()
+                )
 
             if self.start_fuel < fuel_curr:
                 self.start_fuel = fuel_curr
 
             # Current stint data
-            class_name = api.read.vehicle.class_name()
-            self.stint_data[0] = "".join(
-                hmp.select_compound_symbol(f"{class_name} - {tcmpd_name}")
-                for tcmpd_name in api.read.tyre.compound_name()
-            )
             self.stint_data[1] = max(lap_num - self.start_laps, 0)
             self.stint_data[2] = max(time_curr - self.start_time, 0)
             self.stint_data[3] = max(self.start_fuel - fuel_curr, 0)
@@ -308,10 +313,3 @@ class Realtime(Overlay):
             self.bars_time[index].setHidden(unavailable)
             self.bars_fuel[index].setHidden(unavailable)
             self.bars_wear[index].setHidden(unavailable)
-
-    # Additional methods
-    def fuel_units(self, fuel):
-        """2 different fuel unit conversion, default is Liter"""
-        if self.cfg.units["fuel_unit"] == "Gallon":
-            return calc.liter2gallon(fuel)
-        return fuel

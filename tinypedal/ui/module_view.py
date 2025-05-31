@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,45 +21,21 @@ Module & widget list view
 """
 
 from PySide2.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
 
-from ..setting import cfg
+from ..formatter import format_module_name
 from ..module_control import ModuleControl
-from .. import formatter as fmt
+from ..setting import cfg
+from ._common import UIScaler
 from .config import UserConfig
-
-BUTTON_STATE_TEXT = "OFF", "ON"
-QSS_LISTBOX = (
-    "QListView {outline: none;}"
-    "QListView::item {height: 28px;border-radius: 0;}"
-    "QListView::item:selected {background: transparent;}"
-    "QListView::item:hover {background: transparent;}"
-)
-QSS_LISTBOX_ITEM = "font-size: 16px;"
-QSS_BUTTON_TOGGLE = (
-    "QPushButton {color: #555;background: #CCC;font-size: 14px;"
-    "min-width: 30px;max-width: 30px;padding: 2px 3px;border-radius: 3px;}"
-    "QPushButton::hover {color: #FFF;background: #F20;}"
-    "QPushButton::pressed {color: #FFF;background: #555;}"
-    "QPushButton::checked {color: #FFF;background: #555;}"
-    "QPushButton::checked:hover {color: #FFF;background: #F20;}"
-)
-QSS_BUTTON_CONFIG = (
-    "QPushButton {color: #AAA;font-size: 14px;"
-    "padding: 2px 5px;border-radius: 3px;}"
-    "QPushButton::hover {color: #FFF;background: #F20;}"
-    "QPushButton::pressed {color: #FFF;background: #555;}"
-    "QPushButton::checked {color: #FFF;background: #555;}"
-    "QPushButton::checked:hover {color: #FFF;background: #F20;}"
-)
 
 
 class ModuleList(QWidget):
@@ -78,10 +54,8 @@ class ModuleList(QWidget):
         self.label_loaded = QLabel("")
 
         # List box
-        self.listbox_buttons: list = []
         self.listbox_module = QListWidget(self)
         self.listbox_module.setAlternatingRowColors(True)
-        self.listbox_module.setStyleSheet(QSS_LISTBOX)
         self.create_list()
 
         # Button
@@ -91,37 +65,42 @@ class ModuleList(QWidget):
         button_disable = QPushButton("Disable All")
         button_disable.clicked.connect(self.module_button_disable_all)
 
+        layout_button = QHBoxLayout()
+        layout_button.addWidget(button_enable)
+        layout_button.addStretch(1)
+        layout_button.addWidget(button_disable)
+
         # Layout
         layout_main = QVBoxLayout()
-        layout_button = QHBoxLayout()
-
         layout_main.addWidget(self.label_loaded)
         layout_main.addWidget(self.listbox_module)
-        layout_button.addWidget(button_enable)
-        layout_button.addStretch(stretch=1)
-        layout_button.addWidget(button_disable)
         layout_main.addLayout(layout_button)
+        margin = UIScaler.pixel(6)
+        layout_main.setContentsMargins(margin, margin, margin, margin)
         self.setLayout(layout_main)
 
     def create_list(self):
         """Create module list"""
         for _name in self.module_control.names:
-            module_item = ListItemControl(self, _name, self.module_control)
-            self.listbox_buttons.append(module_item)
+            module_item = ModuleControlItem(self, _name, self.module_control)
             item = QListWidgetItem()
+            item.setText(format_module_name(_name))
             self.listbox_module.addItem(item)
             self.listbox_module.setItemWidget(item, module_item)
         self.listbox_module.setCurrentRow(0)
 
-    def refresh_state(self):
+    def refresh(self):
         """Refresh module & button toggle state"""
-        for button in self.listbox_buttons:
-            button.update_state()
+        listbox_module = self.listbox_module
+        for row_index in range(listbox_module.count()):
+            item = listbox_module.item(row_index)
+            listbox_module.itemWidget(item).update_state()
 
     def refresh_label(self):
         """Refresh label text"""
         self.label_loaded.setText(
-            f"Enabled: <b>{self.module_control.number_active}/{self.module_control.number_total}</b>"
+            f"Enabled: <b>{self.module_control.number_active}/"
+            f"{self.module_control.number_total}</b>"
         )
 
     def module_button_enable_all(self):
@@ -129,23 +108,20 @@ class ModuleList(QWidget):
         if self.module_control.number_active != self.module_control.number_total:
             if self.confirm_batch_toggle("Enable"):
                 self.module_control.enable_all()
-                self.refresh_state()
+                self.refresh()
 
     def module_button_disable_all(self):
         """Disable all modules"""
         if self.module_control.number_active:
             if self.confirm_batch_toggle("Disable"):
                 self.module_control.disable_all()
-                self.refresh_state()
+                self.refresh()
 
     def confirm_batch_toggle(self, confirm_type: str) -> bool:
         """Batch toggle confirmation"""
         if not cfg.application["show_confirmation_for_batch_toggle"]:
             return True
-        msg_text = (
-            f"Are you sure you want to <b>{confirm_type}</b> all "
-            f"{self.module_control.type_id}s?"
-        )
+        msg_text = f"<b>{confirm_type}</b> all {self.module_control.type_id}s?"
         confirm_msg = QMessageBox.question(
             self, "Confirm", msg_text,
             buttons=QMessageBox.Yes | QMessageBox.No,
@@ -154,8 +130,8 @@ class ModuleList(QWidget):
         return confirm_msg == QMessageBox.Yes
 
 
-class ListItemControl(QWidget):
-    """List box item control"""
+class ModuleControlItem(QWidget):
+    """Module control item"""
 
     def __init__(self, parent, module_name: str, module_control: ModuleControl):
         """Initialize list box setting
@@ -165,71 +141,66 @@ class ListItemControl(QWidget):
             module_control: Module control (or widget) object.
         """
         super().__init__(parent)
-        self.master = parent
+        self._parent = parent
         self.module_name = module_name
         self.module_control = module_control
-        self.allow_toggle = False
-
-        label_module = QLabel(fmt.format_module_name(self.module_name))
 
         self.button_toggle = QPushButton("")
+        self.button_toggle.setObjectName("buttonToggle")
         self.set_button_toggle()
+
         button_config = QPushButton("Config")
-        button_config.setStyleSheet(QSS_BUTTON_CONFIG)
+        button_config.setObjectName("buttonConfig")
         button_config.pressed.connect(self.open_config_dialog)
 
         layout_item = QHBoxLayout()
-        layout_item.setContentsMargins(4, 0, 4, 0)
-        layout_item.addWidget(label_module, stretch=1)
+        layout_item.setContentsMargins(0, 0, 0, 0)
+        layout_item.addStretch(1)
+        layout_item.setSpacing(0)
         layout_item.addWidget(button_config)
         layout_item.addWidget(self.button_toggle)
-        layout_item.setSpacing(4)
-
-        self.setStyleSheet(QSS_LISTBOX_ITEM)
         self.setLayout(layout_item)
+
+    def is_enabled(self) -> bool:
+        """Is module enabled"""
+        return cfg.user.setting[self.module_name]["enable"]
 
     def set_button_toggle(self):
         """Set toggle button"""
-        self.allow_toggle = False
-        self.button_toggle.setStyleSheet(QSS_BUTTON_TOGGLE)
         self.button_toggle.setCheckable(True)
-        self.button_toggle.setChecked(cfg.user.setting[self.module_name]["enable"])
+        self.button_toggle.setChecked(self.is_enabled())
+        # Use "clicked" to avoid trigger with "setChecked"
+        self.button_toggle.clicked.connect(self.toggle_state)
         self.update_button_text()
-        self.button_toggle.toggled.connect(self.toggle_state)
-        self.allow_toggle = True
 
     def toggle_state(self):
         """Toggle button state"""
-        if self.allow_toggle:
-            self.module_control.toggle(self.module_name)
+        self.module_control.toggle(self.module_name)
         self.update_button_text()
 
     def update_state(self):
         """Update button toggle state"""
-        self.allow_toggle = False
-        self.button_toggle.setChecked(cfg.user.setting[self.module_name]["enable"])
-        self.allow_toggle = True
+        self.button_toggle.setChecked(self.is_enabled())
+        self.update_button_text()
 
     def update_button_text(self):
         """Update button text"""
-        self.button_toggle.setText(
-            BUTTON_STATE_TEXT[cfg.user.setting[self.module_name]["enable"]]
-        )
-        self.master.refresh_label()
+        self.button_toggle.setText("ON" if self.is_enabled() else "OFF")
+        self._parent.refresh_label()
 
     def open_config_dialog(self):
         """Config dialog"""
         _dialog = UserConfig(
-            parent=self.master,
+            parent=self._parent,
             key_name=self.module_name,
             cfg_type=self.module_control.type_id,
             user_setting=cfg.user.setting,
             default_setting=cfg.default.setting,
-            reload_func=self.reload,
+            reload_func=self.reload_module,
         )
         _dialog.open()
 
-    def reload(self):
+    def reload_module(self):
         """Reload module & button state"""
         self.module_control.reload(self.module_name)
         self.update_state()

@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,13 +21,14 @@ Module and widget control
 """
 
 from __future__ import annotations
+
 import logging
 from time import sleep
 from typing import Any, KeysView
 
-from .setting import ConfigType, cfg
-from . import module
-from . import widget
+from . import module, widget
+from .const_file import ConfigType
+from .setting import cfg
 
 logger = logging.getLogger(__name__)
 

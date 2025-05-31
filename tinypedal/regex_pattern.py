@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,6 +20,12 @@
 Regular expression, pattern, string constants
 """
 
+import re
+
+# Compiled regex function
+rex_hex_color = re.compile(r"^#[0-9A-F]{3}$|^#[0-9A-F]{6}$|^#[0-9A-F]{8}$", flags=re.IGNORECASE).search
+rex_invalid_char = re.compile(r'[\\/:*?"<>|]').sub
+rex_number_extract = re.compile(r"\d*\.?\d+").search
 
 # Bool
 CFG_BOOL = (
@@ -57,6 +63,7 @@ CFG_TARGET_LAPTIME = "target_laptime"
 CFG_TEXT_ALIGNMENT = "text_alignment"
 CFG_MULTIMEDIA_PLUGIN = "multimedia_plugin"
 CFG_STATS_CLASSIFICATION = "vehicle_classification"
+CFG_WINDOW_COLOR_THEME = "window_color_theme"
 
 # String common
 CFG_FONT_NAME = "font_name"
@@ -71,8 +78,6 @@ CFG_STRING = (
     "^RF2$|"
     # Partial match
     "file_name|"
-    "info|"
-    "list|"
     "prefix|"
     "sound_format|"
     "suffix|"
@@ -142,6 +147,7 @@ CFG_INVALID_FILENAME = (
     "^compounds$|"
     "^config$|"
     "^heatmap$|"
+    "^tracks$|"
     # Partial match
     "backup"
 )
@@ -149,10 +155,17 @@ CFG_INVALID_FILENAME = (
 # API name
 API_NAME_RF2 = "rFactor 2"
 API_NAME_LMU = "Le Mans Ultimate"
+API_NAME_ALIAS = {
+    API_NAME_RF2: "RF2",
+    API_NAME_LMU: "LMU",
+}
 
 # Abbreviation
 ABBR_PATTERN = (
+    "^id | id$| id |"
+    "^ui | ui$| ui |"
     "api|"
+    "dpi|"
     "drs|"
     "ffb|"
     "lmu|"
@@ -172,6 +185,7 @@ CHOICE_COMMON = {
     CFG_TEXT_ALIGNMENT: ["Left", "Center", "Right"],
     CFG_MULTIMEDIA_PLUGIN: ["WMF", "DirectShow"],
     CFG_STATS_CLASSIFICATION: ["Class - Brand", "Class", "Vehicle"],
+    CFG_WINDOW_COLOR_THEME: ["Light", "Dark"],
 }
 CHOICE_UNITS = {
     "distance_unit": ["Meter", "Feet"],
@@ -184,22 +198,7 @@ CHOICE_UNITS = {
     "tyre_pressure_unit": ["kPa", "psi", "bar"],
 }
 
-# Text constants
-TEXT_PLACEHOLDER = "-"
-TEXT_NOTAVAILABLE = "n/a"
-
-# Identifier
-ENERGY_TYPE_ID = (
-    "FUEL",  # fuel
-    "NRG",  # virtual energy
-)
-RACELENGTH_TYPE_ID = (
-    "TIME",  # time-based race length
-    "LAPS",  # laps-based race length
-)
-
 # Misc
-GEAR_SEQUENCE = "N123456789R"
 COMMON_TYRE_COMPOUNDS = (
     ("super", "Q"),  # super soft
     ("inter", "I"),  # intermediate
@@ -208,6 +207,6 @@ COMMON_TYRE_COMPOUNDS = (
     ("hard", "H"),
     ("rain|wet", "W"),
     ("slick|dry", "S"),
-    ("road|radial", "R"),
+    ("road|radial|tread", "R"),
     ("bias", "B"),  # bias ply
 )

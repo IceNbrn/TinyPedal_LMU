@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -169,10 +169,10 @@ class Realtime(Overlay):
             # Wheel lock duration
             if self.lock_timer.enabled:
                 self.lock_timer.calc(
-                    brake_raw=api.read.inputs.brake_raw(),
-                    start_time=api.read.timing.start(),
-                    elapsed_time=api.read.timing.elapsed(),
-                    slip_ratio=minfo.wheels.slipRatio,
+                    api.read.inputs.brake_raw(),
+                    api.read.timing.start(),
+                    api.read.timing.elapsed(),
+                    minfo.wheels.slipRatio,
                 )
 
             if self.wcfg["show_front_wheel_lock_duration"]:
@@ -219,6 +219,15 @@ class Realtime(Overlay):
 
 class WheelLockTimer:
     """Wheel lock timer"""
+
+    __slots__ = (
+        "enabled",
+        "front",
+        "rear",
+        "_last_elapsed_time",
+        "_last_start_time",
+        "_lock_threshold",
+    )
 
     def __init__(self, enabled: bool, lock_threshold: float) -> None:
         """

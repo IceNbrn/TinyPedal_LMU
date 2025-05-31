@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,33 +21,32 @@ Sectors module
 """
 
 from __future__ import annotations
-from functools import partial
 
-from ._base import DataModule
-from ..module_info import minfo, SectorsInfo
 from ..api_control import api
-from .. import validator as val
+from ..const_common import MAX_SECONDS
+from ..module_info import SectorsInfo, minfo
 from ..userfile.sector_best import load_sector_best_file, save_sector_best_file
-
-MAGIC_NUM = 99999.0
-
-round6 = partial(round, ndigits=6)
+from ..validator import valid_sectors
+from ._base import DataModule, round6
 
 
 class Realtime(DataModule):
     """Sectors data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
         userpath_sector_best = self.cfg.path.sector_best
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
             if self.state.active:
 
                 if not reset:
@@ -61,7 +60,7 @@ class Realtime(DataModule):
                         filepath=userpath_sector_best,
                         filename=combo_id,
                         session_id=session_id,
-                        defaults=[MAGIC_NUM,MAGIC_NUM,MAGIC_NUM],
+                        defaults=[MAX_SECONDS, MAX_SECONDS, MAX_SECONDS],
                     )
 
                     if self.mcfg["enable_all_time_best_sectors"]:
@@ -116,7 +115,7 @@ def calc_sectors(output: SectorsInfo, best_s_tb: list, best_s_pb: list):
     last_sector_idx = -1  # previous recorded sector index value
     delta_s_tb = [0.0] * 3  # deltabest times against all time best sector
     delta_s_pb = [0.0] * 3  # deltabest times against best laptime sector
-    prev_s = [MAGIC_NUM,MAGIC_NUM,MAGIC_NUM]  # previous sector times
+    prev_s = [MAX_SECONDS, MAX_SECONDS, MAX_SECONDS]  # previous sector times
     laptime_best = sum(best_s_pb)
 
     while True:
@@ -133,11 +132,11 @@ def calc_sectors(output: SectorsInfo, best_s_tb: list, best_s_pb: list):
                 prev_s[2] = laptime_valid - last_sector2
 
                 # Update (time gap) deltabest bestlap sector 3
-                if val.sector_time(best_s_pb[2]):
+                if valid_sectors(best_s_pb[2]):
                     delta_s_pb[2] = prev_s[2] - best_s_pb[2]
 
                 # Update deltabest sector 3
-                if val.sector_time(best_s_tb[2]):
+                if valid_sectors(best_s_tb[2]):
                     delta_s_tb[2] = prev_s[2] - best_s_tb[2]
                     no_delta_s = False
                 else:
@@ -149,7 +148,7 @@ def calc_sectors(output: SectorsInfo, best_s_tb: list, best_s_pb: list):
                     new_best = True
 
                 # Save sector time from personal best laptime
-                if laptime_valid < laptime_best and val.sector_time(prev_s):
+                if laptime_valid < laptime_best and valid_sectors(prev_s):
                     laptime_best = laptime_valid
                     best_s_pb = prev_s.copy()
                     new_best = True
@@ -161,11 +160,11 @@ def calc_sectors(output: SectorsInfo, best_s_tb: list, best_s_pb: list):
                 prev_s[0] = curr_sector1
 
                 # Update (time gap) deltabest bestlap sector 1
-                if val.sector_time(best_s_pb[0]):
+                if valid_sectors(best_s_pb[0]):
                     delta_s_pb[0] = prev_s[0] - best_s_pb[0]
 
                 # Update deltabest sector 1
-                if val.sector_time(best_s_tb[0]):
+                if valid_sectors(best_s_tb[0]):
                     delta_s_tb[0] = prev_s[0] - best_s_tb[0]
                     no_delta_s = False
                 else:
@@ -183,11 +182,11 @@ def calc_sectors(output: SectorsInfo, best_s_tb: list, best_s_pb: list):
                 prev_s[1] = curr_sector2 - curr_sector1
 
                 # Update (time gap) deltabest bestlap sector 2
-                if val.sector_time(best_s_pb[1]):
+                if valid_sectors(best_s_pb[1]):
                     delta_s_pb[1] = prev_s[1] - best_s_pb[1]
 
                 # Update deltabest sector 2
-                if val.sector_time(best_s_tb[1]):
+                if valid_sectors(best_s_tb[1]):
                     delta_s_tb[1] = prev_s[1] - best_s_tb[1]
                     no_delta_s = False
                 else:

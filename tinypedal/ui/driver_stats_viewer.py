@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,57 +22,57 @@ Driver stats viewer
 
 from __future__ import annotations
 
-from PySide2.QtCore import Qt, QPoint
+from PySide2.QtCore import QPoint, Qt
 from PySide2.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
-    QDialogButtonBox,
+    QAbstractItemView,
     QComboBox,
-    QPushButton,
+    QHBoxLayout,
+    QHeaderView,
+    QMenu,
+    QMessageBox,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QMessageBox,
-    QAbstractItemView,
-    QMenu,
+    QVBoxLayout,
 )
 
 from .. import calculation as calc
-from .. import formatter as fmt
 from ..api_control import api
+from ..const_common import MAX_SECONDS
+from ..formatter import strip_invalid_char
 from ..setting import cfg
+from ..units import liter_to_gallon, meter_to_kilometer, meter_to_mile
 from ..userfile.driver_stats import (
-    STATS_FILENAME,
     DriverStats,
-    validate_stats_file,
     load_stats_json_file,
     save_stats_json_file,
+    validate_stats_file,
 )
-from .track_map_viewer import TrackMapViewer
 from ._common import (
     BaseEditor,
-    QTableNumTextItem,
-    QSS_EDITOR_BUTTON,
+    CompactButton,
+    NumericTableItem,
+    UIScaler,
 )
+from .track_map_viewer import TrackMapViewer
 
 
 def parse_display_value(key: str, value: int | float) -> str | int | float:
     """Parse stats display value"""
     if key == "pb":
-        if value >= 99999:
+        if value >= MAX_SECONDS:
             return "-:--.---"
         return calc.sec2laptime_full(value)
     if key == "meters":
         if cfg.units["odometer_unit"] == "Kilometer":
-            return round(calc.meter2kilometer(value), 1)
+            return round(meter_to_kilometer(value), 1)
         if cfg.units["odometer_unit"] == "Mile":
-            return round(calc.meter2mile(value), 1)
+            return round(meter_to_mile(value), 1)
         return int(value)
     if key == "seconds":
         return round(value / 60 / 60, 2)
     if key == "liters":
         if cfg.units["fuel_unit"] == "Gallon":
-            value = calc.liter2gallon(value)
+            value = liter_to_gallon(value)
         return round(value, 2)
     return value
 
@@ -102,10 +102,10 @@ class DriverStatsViewer(BaseEditor):
     def __init__(self, parent):
         super().__init__(parent)
         self.set_utility_title("Driver Stats Viewer")
-        self.setMinimumSize(850, 400)
+        self.setMinimumSize(UIScaler.size(66), UIScaler.size(30))
 
         self.stats_temp = {}
-        self.selected_stats_key = api.read.session.track_name()  # get active session key
+        self.selected_stats_key = ""  # get active session key
         self.selected_stats_dict = {}
 
         # Preset selector
@@ -121,13 +121,12 @@ class DriverStatsViewer(BaseEditor):
         self.table_stats.verticalHeader().setVisible(False)
         self.table_stats.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self.table_stats.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        font_w = self.fontMetrics().averageCharWidth()
         for idx in range(1, 5):
             self.table_stats.horizontalHeader().setSectionResizeMode(idx, QHeaderView.Fixed)
-            self.table_stats.setColumnWidth(idx, font_w * 14)
+            self.table_stats.setColumnWidth(idx, UIScaler.size(6))
         for idx in range(5, len(self.table_header_key)):
             self.table_stats.horizontalHeader().setSectionResizeMode(idx, QHeaderView.Fixed)
-            self.table_stats.setColumnWidth(idx, font_w * 10)
+            self.table_stats.setColumnWidth(idx, UIScaler.size(5))
 
         self.table_stats.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table_stats.customContextMenuRequested.connect(self.open_context_menu)
@@ -136,21 +135,17 @@ class DriverStatsViewer(BaseEditor):
         self.refresh_table()
 
         # Button
-        button_delete = QPushButton("Delete")
+        button_delete = CompactButton("Delete")
         button_delete.clicked.connect(self.delete_stats_key)
-        button_delete.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_reload = QPushButton("Reload")
+        button_reload = CompactButton("Reload")
         button_reload.clicked.connect(self.reload_stats)
-        button_reload.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_viewmap = QPushButton("View Map")
+        button_viewmap = CompactButton("View Map")
         button_viewmap.clicked.connect(self.open_trackmap)
-        button_viewmap.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_close = QDialogButtonBox(QDialogButtonBox.Close)
-        button_close.rejected.connect(self.close)
-        button_close.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.close)
 
         # Set layout
         layout_main = QVBoxLayout()
@@ -168,24 +163,27 @@ class DriverStatsViewer(BaseEditor):
         layout_main.addLayout(layout_selector)
         layout_main.addWidget(self.table_stats)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
 
     def reload_stats(self):
         """Reload stats data"""
-        last_selected_stats_key = self.selected_stats_key
-        self.stats_temp = validate_stats_file(
-            load_stats_json_file(
-                filepath=cfg.path.config,
-                filename=STATS_FILENAME,
-            )
+        stats_user = load_stats_json_file(
+            filepath=cfg.path.config,
         )
-        if self.stats_temp:
-            stats_name_list = sorted(self.stats_temp.keys(), key=sort_stats_key)
-        else:
-            stats_name_list = []
+        if stats_user is None:
+            return
+
+        self.stats_temp = validate_stats_file(stats_user)
+
+        if self.selected_stats_key:
+            last_selected_stats_key = self.selected_stats_key
+        else:  # initial load current track name
+            last_selected_stats_key = api.read.session.track_name()
 
         self.stats_list.clear()
-        self.stats_list.addItems(stats_name_list)
+        if self.stats_temp:
+            self.stats_list.addItems(sorted(self.stats_temp.keys(), key=sort_stats_key))
         self.stats_list.setCurrentText(last_selected_stats_key)
 
     def refresh_table(self):
@@ -195,8 +193,7 @@ class DriverStatsViewer(BaseEditor):
 
         row_index = 0
         for veh_name, veh_data in self.selected_stats_dict.items():
-            self.add_stats_vehicle(
-                row_index, veh_name, veh_data)
+            self.add_stats_vehicle(row_index, veh_name, veh_data)
             row_index += 1
 
         self.table_stats.setSortingEnabled(True)
@@ -214,7 +211,7 @@ class DriverStatsViewer(BaseEditor):
                 continue
             # Vehicle stats
             value_raw = veh_data.get(header_key, 0)
-            item = QTableNumTextItem(value_raw, str(parse_display_value(header_key, value_raw)))
+            item = NumericTableItem(value_raw, str(parse_display_value(header_key, value_raw)))
             item.setFlags(Qt.ItemFlags(33))
             item.setTextAlignment(Qt.AlignCenter)
             self.table_stats.setItem(row_index, column_index, item)
@@ -235,7 +232,7 @@ class DriverStatsViewer(BaseEditor):
             return
 
         msg_text = (
-            "Are you sure you want to delete all stats from<br>"
+            "Delete all stats from<br>"
             f"<b>{self.selected_stats_key}</b> ?<br><br>"
             "This cannot be undone!"
         )
@@ -244,7 +241,6 @@ class DriverStatsViewer(BaseEditor):
             save_stats_json_file(
                 stats_user=self.stats_temp,
                 filepath=cfg.path.config,
-                filename=STATS_FILENAME,
             )
             self.reload_stats()
 
@@ -262,8 +258,7 @@ class DriverStatsViewer(BaseEditor):
 
         selected_vehicle = self.table_stats.item(selected_rows[0], 0).text()
         msg_text = (
-            "Are you sure you want to remove all stats from<br>"
-            f"<b>{selected_vehicle}</b> ?<br><br>"
+            f"Remove all stats from <b>{selected_vehicle}</b>?<br><br>"
             "This cannot be undone!"
         )
         if self.confirm_operation(message=msg_text):
@@ -271,7 +266,6 @@ class DriverStatsViewer(BaseEditor):
             save_stats_json_file(
                 stats_user=self.stats_temp,
                 filepath=cfg.path.config,
-                filename=STATS_FILENAME,
             )
             self.reload_stats()
 
@@ -279,9 +273,9 @@ class DriverStatsViewer(BaseEditor):
         """Reset stat"""
         selected_vehicle = self.table_stats.item(row, 0).text()
         selected_column = self.table_header_key[column]
+        best_laptime = self.table_stats.item(row, column).text()
         msg_text = (
-            f"Are you sure you want to reset personal best lap time<br>"
-            f"<b>{self.table_stats.item(row, column).text()}</b> for <b>{selected_vehicle}</b> ?<br><br>"
+            f"Reset <b>{best_laptime}</b> lap time for <b>{selected_vehicle}</b>?<br><br>"
             "This cannot be undone!"
         )
         if self.confirm_operation(message=msg_text):
@@ -290,7 +284,6 @@ class DriverStatsViewer(BaseEditor):
             save_stats_json_file(
                 stats_user=self.stats_temp,
                 filepath=cfg.path.config,
-                filename=STATS_FILENAME,
             )
             self.reload_stats()
 
@@ -304,7 +297,7 @@ class DriverStatsViewer(BaseEditor):
             item_column = data.column()
             break
 
-        menu = QMenu(self)
+        menu = QMenu()  # no parent for temp menu
         if item_column == 0:
             menu.addAction("Remove Vehicle")
         elif item_column == 1:
@@ -329,7 +322,7 @@ class DriverStatsViewer(BaseEditor):
         _dialog = TrackMapViewer(
             self,
             filepath=cfg.path.track_map,
-            filename=fmt.strip_invalid_char(self.selected_stats_key),
+            filename=strip_invalid_char(self.selected_stats_key),
         )
         _dialog.show()
 

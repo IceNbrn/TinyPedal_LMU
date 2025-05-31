@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,10 +21,12 @@ Sector best file function
 """
 
 from __future__ import annotations
-import logging
-import csv
 
-from ..file_constants import FileExt
+import csv
+import logging
+
+from ..const_file import FileExt
+from ..validator import invalid_save_name
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ def save_sector_best_file(
         Line 3: all time theoretical best sector time
         Line 4: all time personal best sector time
     """
-    if len(dataset) != 5:
+    if len(dataset) != 5 or invalid_save_name(filename):
         return
     with open(f"{filepath}{filename}{extension}", "w", newline="", encoding="utf-8") as csvfile:
         data_writer = csv.writer(csvfile)

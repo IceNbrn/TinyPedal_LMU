@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,20 +22,35 @@ Data module base
 
 import logging
 import threading
+from functools import partial
 
-from ..overlay_control import octrl, OverlayState
+from ..overlay_control import octrl
 from ..setting import Setting
 
 logger = logging.getLogger(__name__)
+# Function
+round4 = partial(round, ndigits=4)
+round6 = partial(round, ndigits=6)
 
 
 class DataModule:
     """Data module base"""
 
+    __slots__ = (
+        "module_name",
+        "closed",
+        "state",
+        "cfg",
+        "mcfg",
+        "active_interval",
+        "idle_interval",
+        "_event",
+    )
+
     def __init__(self, config: Setting, module_name: str):
         self.module_name = module_name
         self.closed = True
-        self.state: OverlayState = octrl.state
+        self.state = octrl.state
 
         # Base config
         self.cfg = config

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -25,9 +25,37 @@ Run program
 import os
 import sys
 
-from tinypedal.main import start_app
+
+def override_pyside_version(version: int = 6):
+    """Override PySide version 2 to 6"""
+    if version != 6:
+        return
+    original = "PySide2"
+    override = f"PySide{version}"
+    override_module(original, override)
+    override_module(f"{original}.QtCore", f"{override}.QtCore")
+    override_module(f"{original}.QtGui", f"{override}.QtGui")
+    override_module(f"{original}.QtWidgets", f"{override}.QtWidgets")
+    override_module(f"{original}.QtMultimedia", f"{override}.QtMultimedia")
+
+
+def override_module(original: str, override: str):
+    """Manual import & override module"""
+    sys.modules[original] = __import__(override, fromlist=[override])
 
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
-    start_app()
+
+    # Load command line arguments
+    from tinypedal.cli_argument import get_cli_argument
+
+    cli_args = get_cli_argument()
+
+    # Check whether to override PySide version
+    override_pyside_version(getattr(cli_args, "pyside", 2))
+
+    # Start
+    from tinypedal.main import start_app
+
+    start_app(cli_args)

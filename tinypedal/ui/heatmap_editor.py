@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -23,31 +23,32 @@ Heatmap editor
 import time
 
 from PySide2.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLineEdit,
-    QDialogButtonBox,
     QComboBox,
-    QPushButton,
-    QListWidget,
-    QListWidgetItem,
-    QMessageBox
+    QDialogButtonBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLineEdit,
+    QMessageBox,
+    QTableWidget,
+    QVBoxLayout,
 )
 
-from ..setting import ConfigType, cfg, copy_setting
+from ..const_file import ConfigType
 from ..module_control import wctrl
+from ..setting import cfg, copy_setting
 from ._common import (
+    QVAL_COLOR,
+    QVAL_HEATMAP,
     BaseDialog,
     BaseEditor,
     BatchOffset,
+    CompactButton,
     DoubleClickEdit,
-    QVAL_INTEGER,
-    QVAL_COLOR,
-    QVAL_HEATMAP,
-    QSS_EDITOR_BUTTON,
-    QSS_EDITOR_LISTBOX,
+    FloatTableItem,
+    UIScaler,
 )
+
+HEADER_HEATMAP = "Temperature (Celsius)","Color"
 
 
 class HeatmapEditor(BaseEditor):
@@ -56,9 +57,9 @@ class HeatmapEditor(BaseEditor):
     def __init__(self, parent):
         super().__init__(parent)
         self.set_utility_title("Heatmap Editor")
-        self.setMinimumHeight(400)
+        self.setMinimumHeight(UIScaler.size(30))
 
-        self.option_heatmap = []
+        self._verify_enabled = True
         self.heatmap_temp = copy_setting(cfg.user.heatmap)
         self.selected_heatmap_key = next(iter(self.heatmap_temp.keys()))
         self.selected_heatmap_dict = self.heatmap_temp[self.selected_heatmap_key]
@@ -69,48 +70,52 @@ class HeatmapEditor(BaseEditor):
         self.heatmap_list.currentIndexChanged.connect(self.select_heatmap)
 
         # Heatmap list box
-        self.listbox_heatmap = QListWidget(self)
-        self.listbox_heatmap.setStyleSheet(QSS_EDITOR_LISTBOX)
-        self.refresh_list()
+        self.table_heatmap = QTableWidget(self)
+        self.table_heatmap.setColumnCount(len(HEADER_HEATMAP))
+        self.table_heatmap.setHorizontalHeaderLabels(HEADER_HEATMAP)
+        self.table_heatmap.verticalHeader().setVisible(False)
+        self.table_heatmap.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.table_heatmap.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_heatmap.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.table_heatmap.setColumnWidth(1, UIScaler.size(8))
+        self.table_heatmap.cellChanged.connect(self.set_modified)
+        self.table_heatmap.cellChanged.connect(self.verify_input)
+        self.refresh_table()
+        self.set_unmodified()
 
         # Button
-        button_create = QPushButton("New")
+        button_create = CompactButton("New")
         button_create.clicked.connect(self.open_create_dialog)
-        button_create.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_copy = QPushButton("Copy")
+        button_copy = CompactButton("Copy")
         button_copy.clicked.connect(self.open_copy_dialog)
-        button_copy.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_delete = QPushButton("Delete")
+        button_delete = CompactButton("Delete")
         button_delete.clicked.connect(self.delete_heatmap)
-        button_delete.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_add = QPushButton("Add")
+        button_add = CompactButton("Add")
         button_add.clicked.connect(self.add_temperature)
-        button_add.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_sort = QPushButton("Sort")
-        button_sort.clicked.connect(self.sorting)
-        button_sort.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_sort = CompactButton("Sort")
+        button_sort.clicked.connect(self.sort_temperature)
 
-        button_offset = QPushButton("Offset")
+        button_remove = CompactButton("Remove")
+        button_remove.clicked.connect(self.delete_temperature)
+
+        button_offset = CompactButton("Offset")
         button_offset.clicked.connect(self.open_offset_dialog)
-        button_offset.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_reset = QDialogButtonBox(QDialogButtonBox.Reset)
+        button_reset = CompactButton("Reset")
         button_reset.clicked.connect(self.reset_heatmap)
-        button_reset.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_apply = QDialogButtonBox(QDialogButtonBox.Apply)
+        button_apply = CompactButton("Apply")
         button_apply.clicked.connect(self.applying)
-        button_apply.setStyleSheet(QSS_EDITOR_BUTTON)
 
-        button_save = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Close)
-        button_save.accepted.connect(self.saving)
-        button_save.rejected.connect(self.close)
-        button_save.setStyleSheet(QSS_EDITOR_BUTTON)
+        button_save = CompactButton("Save")
+        button_save.clicked.connect(self.saving)
+
+        button_close = CompactButton("Close")
+        button_close.clicked.connect(self.close)
 
         # Set layout
         layout_main = QVBoxLayout()
@@ -124,77 +129,47 @@ class HeatmapEditor(BaseEditor):
 
         layout_button.addWidget(button_add)
         layout_button.addWidget(button_sort)
+        layout_button.addWidget(button_remove)
         layout_button.addWidget(button_offset)
         layout_button.addWidget(button_reset)
         layout_button.addStretch(1)
         layout_button.addWidget(button_apply)
         layout_button.addWidget(button_save)
+        layout_button.addWidget(button_close)
 
         layout_main.addLayout(layout_selector)
-        layout_main.addWidget(self.listbox_heatmap)
+        layout_main.addWidget(self.table_heatmap)
         layout_main.addLayout(layout_button)
+        layout_main.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
         self.setLayout(layout_main)
-        self.setMinimumWidth(self.sizeHint().width() + 20)
+        self.setMinimumWidth(self.sizeHint().width() + UIScaler.size(2))
 
-    def refresh_list(self):
-        """Refresh temperature list"""
-        self.listbox_heatmap.clear()
-        self.option_heatmap.clear()
-        already_modified = self.is_modified()
+    def refresh_table(self):
+        """Refresh temperature table"""
+        self.table_heatmap.setRowCount(0)
         row_index = 0
 
-        for key, item in self.selected_heatmap_dict.items():
-            layout_item = QHBoxLayout()
-            layout_item.setContentsMargins(4,4,4,4)
-            layout_item.setSpacing(4)
-
-            temperature_edit = self.__add_option_temperature(key, layout_item)
-            color_edit = self.__add_option_color(item, layout_item, 100)
-            self.__add_delete_button(row_index, layout_item)
-            self.option_heatmap.append((temperature_edit, color_edit))
+        self._verify_enabled = False
+        for temperature, color in self.selected_heatmap_dict.items():
+            self.add_temperature_entry(row_index, float(temperature), color)
             row_index += 1
+        self._verify_enabled = True
 
-            heatmap_item = QWidget(self)
-            heatmap_item.setLayout(layout_item)
-            item = QListWidgetItem()
-            self.listbox_heatmap.addItem(item)
-            self.listbox_heatmap.setItemWidget(item, heatmap_item)
-
-        if not already_modified:
-            self.set_unmodified()
-
-    def __add_option_temperature(self, key: str, layout: QHBoxLayout):
-        """Temperature integer"""
-        line_edit = QLineEdit()
-        line_edit.setValidator(QVAL_INTEGER)
-        line_edit.textChanged.connect(self.set_modified)
-        # Load selected option
-        line_edit.setText(key)
-        # Add layout
-        layout.addWidget(line_edit)
-        return line_edit
-
-    def __add_option_color(self, key: str, layout: QHBoxLayout, width: int):
+    def __add_option_color(self, key):
         """Color string"""
         color_edit = DoubleClickEdit(self, mode="color", init=key)
-        color_edit.setFixedWidth(width)
         color_edit.setMaxLength(9)
         color_edit.setValidator(QVAL_COLOR)
         color_edit.textChanged.connect(self.set_modified)
         color_edit.textChanged.connect(color_edit.preview_color)
-        # Load selected option
-        color_edit.setText(key)
-        # Add layout
-        layout.addWidget(color_edit)
+        color_edit.setText(key)  # load selected option
         return color_edit
 
-    def __add_delete_button(self, row_index: int, layout: QHBoxLayout):
-        """Delete button"""
-        button = QPushButton("X", self)
-        button.setFixedWidth(20)
-        button.pressed.connect(
-            lambda index=row_index: self.delete_temperature(index))
-        layout.addWidget(button)
+    def add_temperature_entry(self, row_index: int, temperature: float, color: str):
+        """Add new temperature entry to table"""
+        self.table_heatmap.insertRow(row_index)
+        self.table_heatmap.setItem(row_index, 0, FloatTableItem(temperature))
+        self.table_heatmap.setCellWidget(row_index, 1, self.__add_option_color(color))
 
     def open_create_dialog(self):
         """Create heatmap preset"""
@@ -208,61 +183,92 @@ class HeatmapEditor(BaseEditor):
 
     def open_offset_dialog(self):
         """Open offset dialog"""
+        if self.column_selection_count(0) == 0:
+            msg_text = (
+                "Select <b>one or more values</b> from <b>temperature</b> "
+                "column to apply offset."
+            )
+            QMessageBox.warning(self, "Error", msg_text)
+            return
+
         self.sort_temperature()
         _dialog = BatchOffset(self, self.apply_batch_offset)
-        _dialog.config(0, 1, -99999, 99999)
+        _dialog.config(1, 1, -99999, 99999)
         _dialog.open()
+
+    def column_selection_count(self, column_index: int = 0) -> int:
+        """Column selection count"""
+        row_count = 0
+        for data in self.table_heatmap.selectedIndexes():
+            if data.column() == column_index:
+                row_count += 1
+            else:
+                return 0
+        return row_count
+
+    def verify_input(self, row_index: int, column_index: int):
+        """Verify input value"""
+        if self._verify_enabled:
+            self.set_modified()
+            item = self.table_heatmap.item(row_index, column_index)
+            if column_index == 0:
+                item.validate()
 
     def apply_batch_offset(self, offset: int, is_scale_mode: bool):
         """Apply batch offset"""
-        for edit in self.option_heatmap:
-            value = float(edit[0].text())
+        self._verify_enabled = False
+        for item in self.table_heatmap.selectedItems():
+            value = item.value()
             if is_scale_mode:
                 value *= offset
             else:
                 value += offset
-            edit[0].setText(f"{value:.0f}")
+            item.setValue(value)
+        self._verify_enabled = True
+        self.set_modified()
 
     def add_temperature(self):
         """Add new temperature"""
         self.sort_temperature()
-        if self.selected_heatmap_dict:
-            last_key = str(int(list(self.selected_heatmap_dict.keys())[-1]) + 10)
-            self.selected_heatmap_dict[last_key] = "#FFFFFF"
+        row_index = self.table_heatmap.rowCount()
+        if row_index > 0:
+            temperature = self.table_heatmap.item(row_index - 1, 0).value() + 10
+            color = "#FFFFFF"
         else:
-            self.selected_heatmap_dict["-273"] = "#4444FF"
-        self.set_modified()
-        self.refresh_list()
-        # Move focus to new heatmap row
-        self.listbox_heatmap.setCurrentRow(len(self.selected_heatmap_dict) - 1)
+            temperature = -273.0
+            color = "#4444FF"
+        self.add_temperature_entry(row_index, temperature, color)
+        self.table_heatmap.setCurrentCell(row_index, 0)
 
     def delete_temperature(self, row_index: int):
         """Delete temperature entry"""
-        target = self.option_heatmap[row_index][0].text()
-        if not self.confirm_operation(message=f"<b>Delete temperature '{target}' ?</b>"):
+        selected_rows = set(data.row() for data in self.table_heatmap.selectedIndexes())
+        if not selected_rows:
+            QMessageBox.warning(self, "Error", "No data selected.")
             return
 
-        self.update_heatmap()
-        self.selected_heatmap_dict.pop(target)
+        if not self.confirm_operation(message="<b>Delete selected temperature?</b>"):
+            return
+
+        for row_index in sorted(selected_rows, reverse=True):
+            self.table_heatmap.removeRow(row_index)
         self.set_modified()
-        self.refresh_list()
 
     def sort_temperature(self):
         """Sort temperature"""
-        self.update_heatmap()
-        self.selected_heatmap_dict = dict(
-            sorted(self.selected_heatmap_dict.items(), key=lambda keys: int(keys[0])))
+        if self.table_heatmap.rowCount() > 1:
+            self.table_heatmap.sortItems(0)
+            self.set_modified()
 
     def select_heatmap(self):
         """Select heatmap list"""
         # Sort & apply previous preset first
         if self.selected_heatmap_dict:
-            self.sort_temperature()
-            self.heatmap_temp[self.selected_heatmap_key] = self.selected_heatmap_dict
+            self.update_heatmap_temp()
         # Get newly selected preset name
         self.selected_heatmap_key = self.heatmap_list.currentText()
         self.selected_heatmap_dict = self.heatmap_temp[self.selected_heatmap_key]
-        self.refresh_list()
+        self.refresh_table()
 
     def delete_heatmap(self):
         """Delete heatmap"""
@@ -271,8 +277,7 @@ class HeatmapEditor(BaseEditor):
             return
 
         msg_text = (
-            "Are you sure you want to delete heatmap preset<br>"
-            f"<b>{self.selected_heatmap_key}</b> ?<br><br>"
+            f"Delete <b>{self.selected_heatmap_key}</b> preset?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
         if self.confirm_operation(message=msg_text):
@@ -283,7 +288,7 @@ class HeatmapEditor(BaseEditor):
 
     def reset_heatmap(self):
         """Reset heatmap"""
-        if cfg.default.heatmap.get(self.selected_heatmap_key, None) is None:
+        if cfg.default.heatmap.get(self.selected_heatmap_key) is None:
             msg_text = (
                 "Cannot reset selected heatmap preset.<br><br>"
                 "Default preset does not exist."
@@ -292,13 +297,12 @@ class HeatmapEditor(BaseEditor):
             return
 
         msg_text = (
-            "Are you sure you want to reset selected heatmap preset to default?<br><br>"
+            f"Reset <b>{self.selected_heatmap_key}</b> preset to default?<br><br>"
             "Changes are only saved after clicking Apply or Save Button."
         )
         if self.confirm_operation(message=msg_text):
             self.selected_heatmap_dict = cfg.default.heatmap[self.selected_heatmap_key].copy()
-            self.set_modified()
-            self.refresh_list()
+            self.refresh_table()
 
     def applying(self):
         """Save & apply"""
@@ -309,24 +313,20 @@ class HeatmapEditor(BaseEditor):
         self.save_heatmap()
         self.accept()  # close
 
-    def sorting(self):
-        """Sort & refresh"""
-        self.sort_temperature()
-        self.set_modified()
-        self.refresh_list()
-
-    def update_heatmap(self):
+    def update_heatmap_temp(self):
         """Update temporary changes to selected heatmap first"""
+        self.sort_temperature()
         self.selected_heatmap_dict.clear()
-        for edit in self.option_heatmap:
-            self.selected_heatmap_dict[edit[0].text()] = edit[1].text()
+        for index in range(self.table_heatmap.rowCount()):
+            temperature = f"{self.table_heatmap.item(index, 0).value():.1f}"
+            color_string = self.table_heatmap.cellWidget(index, 1).text()
+            self.selected_heatmap_dict[temperature] = color_string
+        # Apply changes to heatmap preset dictionary
+        self.heatmap_temp[self.selected_heatmap_key] = self.selected_heatmap_dict
 
     def save_heatmap(self):
         """Save heatmap"""
-        self.update_heatmap()
-        self.refresh_list()
-        # Apply changes to heatmap preset dictionary
-        self.heatmap_temp[self.selected_heatmap_key] = self.selected_heatmap_dict
+        self.update_heatmap_temp()
         cfg.user.heatmap = copy_setting(self.heatmap_temp)
         cfg.save(0, cfg_type=ConfigType.HEATMAP)
         while cfg.is_saving:  # wait saving finish
@@ -345,10 +345,10 @@ class CreateHeatmapPreset(BaseDialog):
 
     def __init__(self, parent, title: str = "", mode: str = ""):
         super().__init__(parent)
-        self.master = parent
+        self._parent = parent
         self.edit_mode = mode
         self.setWindowTitle(title)
-        self.setFixedWidth(280)
+        self.setMinimumWidth(UIScaler.size(21))
 
         # Entry box
         self.preset_entry = QLineEdit()
@@ -381,12 +381,11 @@ class CreateHeatmapPreset(BaseDialog):
         """Saving new preset"""
         # Duplicate preset
         if self.edit_mode == "duplicate":
-            self.master.heatmap_temp[entered_name] = self.master.selected_heatmap_dict.copy()
+            self._parent.heatmap_temp[entered_name] = self._parent.selected_heatmap_dict.copy()
         # Create new preset
         else:
-            self.master.heatmap_temp[entered_name] = {"-273": "#4444FF"}
-        self.master.heatmap_list.addItem(entered_name)
-        self.master.heatmap_list.setCurrentText(entered_name)
-        self.master.set_modified()
+            self._parent.heatmap_temp[entered_name] = {"-273.0": "#4444FF"}
+        self._parent.heatmap_list.addItem(entered_name)
+        self._parent.heatmap_list.setCurrentText(entered_name)
         # Close window
         self.accept()

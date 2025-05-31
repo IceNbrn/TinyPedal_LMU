@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,14 +21,15 @@ Overlay base window, events.
 """
 
 from __future__ import annotations
+
 from typing import Any, NamedTuple
 
-from PySide2.QtCore import Qt, Slot, QBasicTimer
-from PySide2.QtGui import QPalette, QFont, QFontMetrics, QPixmap
-from PySide2.QtWidgets import QWidget, QLabel, QLayout, QGridLayout
+from PySide2.QtCore import QBasicTimer, Qt, Slot
+from PySide2.QtGui import QFont, QFontMetrics, QPalette, QPixmap
+from PySide2.QtWidgets import QGridLayout, QLabel, QLayout, QWidget
 
 from .. import regex_pattern as rxp
-from ..const import APP_NAME
+from ..const_app import APP_NAME
 from ..overlay_control import octrl
 from ..setting import Setting
 
@@ -48,7 +49,7 @@ class Overlay(QWidget):
         self.cfg = config
 
         # Widget config
-        self.wcfg: dict = self.cfg.user.setting[widget_name]
+        self.wcfg = self.cfg.user.setting[widget_name]
         validate_column_order(self.wcfg)
 
         # Base setting
@@ -57,22 +58,20 @@ class Overlay(QWidget):
 
         # Widget mouse event
         self._mouse_pos = None
-        self._move_size = max(self.cfg.application["grid_move_size"], 1)
 
         # Set update timer
         self._update_timer = QBasicTimer()
-        self._update_interval = max(
-            self.wcfg["update_interval"],
-            self.cfg.application["minimum_update_interval"],
-        )
 
     def start(self):
         """Set initial widget state in orders, and start update"""
         self.__connect_signal()
-        self.__set_window_style()
         self.__set_window_attributes()  # 1
         self.__set_window_flags()  # 2
-        self._update_timer.start(self._update_interval, self)
+        update_interval = max(
+            self.wcfg["update_interval"],
+            self.cfg.application["minimum_update_interval"],
+        )
+        self._update_timer.start(update_interval, self)
 
     def stop(self):
         """Stop and close widget"""
@@ -94,16 +93,18 @@ class Overlay(QWidget):
     def __set_window_attributes(self):
         """Set window attributes"""
         self.setWindowOpacity(self.wcfg["opacity"])
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
         if self.cfg.compatibility["enable_translucent_background"]:
             self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setAttribute(Qt.WA_DeleteOnClose, True)
+        else:
+            self.__set_window_style()
 
     def __set_window_flags(self):
         """Set window flags"""
         self.setWindowFlag(Qt.FramelessWindowHint, True)
-        # Unhide taskbar widget window & icon if VR compatibility option enabled
-        self.setWindowFlag(Qt.Tool, not self.cfg.overlay["vr_compatibility"])
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        if not self.cfg.overlay["vr_compatibility"]:  # hide taskbar widget
+            self.setWindowFlag(Qt.Tool, True)
         if self.cfg.compatibility["enable_bypass_window_manager"]:
             self.setWindowFlag(Qt.X11BypassWindowManagerHint, True)
         if self.cfg.overlay["fixed_position"]:  # load overlay lock state
@@ -111,23 +112,24 @@ class Overlay(QWidget):
 
     def __set_window_style(self):
         """Set window style"""
-        background_color = QPalette()
-        background_color.setColor(
-            QPalette.Window,
-            self.cfg.compatibility["global_bkg_color"],
-        )
-        self.setPalette(background_color)
+        palette = self.palette()
+        palette.setColor(QPalette.Window, self.cfg.compatibility["global_bkg_color"])
+        self.setPalette(palette)
 
     def mouseMoveEvent(self, event):
         """Update widget position"""
         if self._mouse_pos and event.buttons() == Qt.LeftButton:
             pos = event.globalPos() - self._mouse_pos
             if self.cfg.overlay["enable_grid_move"]:
-                pos = pos / self._move_size * self._move_size
+                move_size = max(self.cfg.application["grid_move_size"], 1)
+                pos = pos / move_size * move_size
             self.move(pos)
 
     def mousePressEvent(self, event):
         """Set offset position & press state"""
+        # Make sure overlay cannot be dragged while "fixed_position" enabled
+        if self.cfg.overlay["fixed_position"]:
+            return
         if event.buttons() == Qt.LeftButton:
             self._mouse_pos = event.pos()
 
@@ -167,8 +169,7 @@ class Overlay(QWidget):
             event.ignore()
 
     # Common GUI methods
-    @staticmethod
-    def config_font(name: str = "", size: int = 1, weight: str = "") -> QFont:
+    def config_font(self, name: str = "", size: int = 1, weight: str = "") -> QFont:
         """Config font
 
         Used for draw text in widget that uses QPainter,
@@ -182,7 +183,7 @@ class Overlay(QWidget):
         Returns:
             QFont object.
         """
-        font = QFont()
+        font = self.font()  # get existing widget font
         font.setFamily(name)
         font.setPixelSize(max(size, 1))
         if weight:
@@ -257,8 +258,8 @@ class Overlay(QWidget):
         if align == 0 or align == "Center":
             return Qt.AlignCenter
         if align == 1 or align == "Left":
-            return Qt.AlignLeft
-        return Qt.AlignRight
+            return Qt.AlignLeft | Qt.AlignVCenter
+        return Qt.AlignRight | Qt.AlignVCenter
 
     @staticmethod
     def set_qss(
@@ -323,10 +324,12 @@ class Overlay(QWidget):
         Returns:
             QLabel instance.
         """
+        bar_temp = QLabel(self)
+        bar_temp.setTextFormat(Qt.PlainText)
+        bar_temp.setTextInteractionFlags(Qt.NoTextInteraction)
+
         if text is not None:
-            bar_temp = QLabel(text, self)
-        else:
-            bar_temp = QLabel(self)  # empty label
+            bar_temp.setText(text)
 
         if pixmap is not None:
             bar_temp.setPixmap(pixmap)
@@ -344,8 +347,6 @@ class Overlay(QWidget):
         elif height > 0:
             bar_temp.setMinimumHeight(height)
 
-        bar_temp.setTextFormat(Qt.PlainText)
-        bar_temp.setTextInteractionFlags(Qt.NoTextInteraction)
         bar_temp.setAlignment(self.set_text_alignment(align))
         bar_temp.last = last
         return bar_temp
@@ -422,12 +423,12 @@ class Overlay(QWidget):
         column_left: int = 0,
         column_right: int = 9,
     ):
-        """Set grid layout - quad - (0,1), (2,3)
+        """Set grid layout - quad - (0,1), (2,3), (4,5), ...
 
         Default row index start from 1; reserve row index 0 for caption.
         """
         for index, target in enumerate(targets):
-            row_index = row_start + (index > 1)
+            row_index = row_start + (index // 2)
             column_index = column_left + (index % 2) * column_right
             if isinstance(target, QWidget):
                 layout.addWidget(target, row_index, column_index)
@@ -444,8 +445,10 @@ class Overlay(QWidget):
     ):
         """Set grid layout - table by keys of each row"""
         if right_to_left:
-            targets = reversed(targets)
-        for column_index, target in enumerate(targets):
+            enum_target = enumerate(reversed(targets))
+        else:
+            enum_target = enumerate(targets)
+        for column_index, target in enum_target:
             layout.addWidget(target, row_index, column_index)
             if hide_start <= column_index:
                 target.hide()
@@ -460,8 +463,10 @@ class Overlay(QWidget):
     ):
         """Set grid layout - table by keys of each column"""
         if bottom_to_top:
-            targets = reversed(targets)
-        for row_index, target in enumerate(targets):
+            enum_target = enumerate(reversed(targets))
+        else:
+            enum_target = enumerate(targets)
+        for row_index, target in enum_target:
             layout.addWidget(target, row_index, column_index)
             if hide_start <= row_index:
                 target.hide()
@@ -523,10 +528,12 @@ class Overlay(QWidget):
             order = column, row  # Vertical layout
         else:
             order = row, column  # Horizontal layout
+        layout = self.layout()
+        assert isinstance(layout, QGridLayout)
         if isinstance(target, QWidget):
-            self.layout().addWidget(target, *order)
+            layout.addWidget(target, *order)
         else:
-            self.layout().addLayout(target, *order)
+            layout.addLayout(target, *order)
 
 
 def validate_column_order(config: dict):

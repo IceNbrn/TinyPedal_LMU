@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -22,21 +22,25 @@ Stats module
 
 from __future__ import annotations
 
-from ._base import DataModule
-from ..module_info import minfo
-from ..api_control import api
 from .. import calculation as calc
-from ..userfile.driver_stats import load_driver_stats, save_driver_stats
+from ..api_control import api
+from ..const_common import FLOAT_INF, POS_XYZ_INF
+from ..module_info import minfo
+from ..userfile.driver_stats import DriverStats, load_driver_stats, save_driver_stats
+from ._base import DataModule
 
 
 class Realtime(DataModule):
     """Delta time data"""
+
+    __slots__ = ()
 
     def __init__(self, config, module_name):
         super().__init__(config, module_name)
 
     def update_data(self):
         """Update module data"""
+        _event_wait = self._event.wait
         reset = False
         update_interval = self.active_interval
 
@@ -45,7 +49,7 @@ class Realtime(DataModule):
         podium_by_class = self.mcfg["enable_podium_by_class"]
         vehicle_class = self.mcfg["vehicle_classification"]
 
-        while not self._event.wait(update_interval):
+        while not _event_wait(update_interval):
 
             # Ignore stats while in override mode
             if (self.cfg.shared_memory_api["enable_player_index_override"]
@@ -60,18 +64,20 @@ class Realtime(DataModule):
                     reset = True
                     update_interval = self.active_interval
 
-                    is_pit_lap = 0
-                    last_lap_stime = float("inf")
-                    last_lap_etime = float("inf")
-                    last_best_laptime = float("inf")
-                    last_num_penalties = 99999
-                    fuel_last = 0.0
-                    last_finish_state = 99999
-                    gps_last = (-99999, -99999, -99999)
-                    driver_stats = load_driver_stats(
+                    # Load driver stats
+                    loaded_stats = load_driver_stats(
                         key_list=self.stats_keys(vehicle_class),
                         filepath=self.cfg.path.config,
                     )
+                    driver_stats = DriverStats()
+                    is_pit_lap = 0
+                    last_lap_stime = FLOAT_INF
+                    last_lap_etime = FLOAT_INF
+                    last_best_laptime = FLOAT_INF
+                    last_num_penalties = 99999
+                    fuel_last = 0.0
+                    last_finish_state = 99999
+                    gps_last = POS_XYZ_INF
 
                 # General
                 lap_stime = api.read.timing.start()
@@ -120,7 +126,7 @@ class Realtime(DataModule):
                     driver_stats.liters += fuel_last - fuel_curr
                     fuel_last = fuel_curr
 
-                # Race-only stats
+                # Race session stats
                 if api.read.session.in_race():
                     # Penalties
                     num_penalties = api.read.vehicle.number_penalties()
@@ -145,7 +151,7 @@ class Realtime(DataModule):
                                 driver_stats.podiums += 1
 
                 # Output stats data
-                output.metersDriven = driver_stats.meters
+                output.metersDriven = driver_stats.meters + loaded_stats.meters
 
             else:
                 if reset:
@@ -157,7 +163,7 @@ class Realtime(DataModule):
                         filepath=self.cfg.path.config,
                     )
 
-    def stats_keys(self, vehicle_class: str) -> tuple[str, ...]:
+    def stats_keys(self, vehicle_class: str) -> tuple[str, str]:
         """Stats key names"""
         if vehicle_class == "Class":
             name = api.read.vehicle.class_name()

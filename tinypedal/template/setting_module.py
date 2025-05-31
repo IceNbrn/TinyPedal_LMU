@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -58,6 +58,7 @@ MODULE_DEFAULT = {
         "enable": True,
         "update_interval": 10,
         "idle_update_interval": 400,
+        "minimum_delta_distance": 5,
     },
     "module_mapping": {
         "enable": True,
@@ -84,6 +85,7 @@ MODULE_DEFAULT = {
         "connection_timeout": 1,
         "connection_retry": 3,
         "connection_retry_delay": 1,
+        "enable_pit_strategy_access": True,
     },
     "module_sectors": {
         "enable": True,

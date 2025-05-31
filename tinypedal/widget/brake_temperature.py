@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -21,9 +21,15 @@ Brake temperature Widget
 """
 
 from .. import calculation as calc
-from .. import heatmap as hmp
-from ..regex_pattern import TEXT_NOTAVAILABLE
 from ..api_control import api
+from ..const_common import TEXT_NA, TEXT_PLACEHOLDER
+from ..units import set_unit_temperature
+from ..userfile.heatmap import (
+    HEATMAP_DEFAULT_BRAKE,
+    load_heatmap_style,
+    select_brake_heatmap_name,
+    set_predefined_brake_name,
+)
 from ._base import Overlay
 
 
@@ -43,11 +49,12 @@ class Realtime(Overlay):
         # Config variable
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         inner_gap = self.wcfg["inner_gap"]
-        self.leading_zero = min(max(self.wcfg["leading_zero"], 1), 3)
+        self.leading_zero = min(max(self.wcfg["leading_zero"], 1), 3) + 0.0  # no decimal
         self.sign_text = "°" if self.wcfg["show_degree_sign"] else ""
-
         text_width = 3 + len(self.sign_text) + (self.cfg.units["temperature_unit"] == "Fahrenheit")
-        bar_width_temp = font_m.width * text_width + bar_padx
+
+        # Config units
+        self.unit_temp = set_unit_temperature(self.cfg.units["temperature_unit"])
 
         # Base style
         self.setStyleSheet(self.set_qss(
@@ -58,9 +65,9 @@ class Realtime(Overlay):
 
         # Heatmap style list: 0 - fl, 1 - fr, 2 - rl, 3 - rr
         self.heatmap_styles = 4 * [
-            hmp.load_heatmap_style(
+            load_heatmap_style(
                 heatmap_name=self.wcfg["heatmap_name"],
-                default_name=hmp.HEATMAP_DEFAULT_BRAKE,
+                default_name=HEATMAP_DEFAULT_BRAKE,
                 swap_style=not self.wcfg["swap_style"],
                 fg_color=self.wcfg["font_color_temperature"],
                 bg_color=self.wcfg["bkg_color_temperature"],
@@ -74,9 +81,9 @@ class Realtime(Overlay):
             bg_color=self.wcfg["bkg_color_temperature"]
         )
         self.bars_btemp = self.set_qlabel(
-            text=TEXT_NOTAVAILABLE,
+            text=TEXT_NA,
             style=bar_style_btemp,
-            width=bar_width_temp,
+            width=font_m.width * text_width + bar_padx,
             count=4,
             last=0,
         )
@@ -101,9 +108,9 @@ class Realtime(Overlay):
                     bg_color=self.wcfg["bkg_color_highlighted"])
             )
             self.bars_btavg = self.set_qlabel(
-                text=TEXT_NOTAVAILABLE,
+                text=TEXT_NA,
                 style=self.bar_style_btavg[0],
-                width=bar_width_temp,
+                width=font_m.width * text_width + bar_padx,
                 count=4,
                 last=0,
             )
@@ -151,9 +158,9 @@ class Realtime(Overlay):
                 if lap_stime != self.last_lap_stime:  # time stamp difference
                     self.last_lap_stime = lap_stime  # reset time stamp counter
                     self.btavg_samples = 1
-                    # Highlight reading
+                    # Highlight reading, +0.000001 to un-highlight later in case no value change
                     for bar_btavg in self.bars_btavg:
-                        self.update_btavg(bar_btavg, bar_btavg.last, True)
+                        self.update_btavg(bar_btavg, bar_btavg.last + 0.000001, True)
 
                 # Update average reading
                 not_highlight = lap_etime - self.last_lap_stime >= self.wcfg["highlight_duration"]
@@ -175,41 +182,41 @@ class Realtime(Overlay):
         """Brake temperature"""
         if target.last != data:
             target.last = data
-            target.setText(self.format_temperature(data))
+            if data < -100:
+                target.setText(TEXT_PLACEHOLDER)
+            else:
+                target.setText(f"{self.unit_temp(data):0{self.leading_zero}f}{self.sign_text}")
             target.setStyleSheet(calc.select_grade(self.heatmap_styles[index], data))
 
     def update_btavg(self, target, data, highlighted=False):
         """Brake average temperature"""
         if target.last != data or highlighted:
             target.last = data
-            target.setText(self.format_temperature(data))
+            if data < -100:
+                target.setText(TEXT_PLACEHOLDER)
+            else:
+                target.setText(f"{self.unit_temp(data):0{self.leading_zero}f}{self.sign_text}")
             target.setStyleSheet(self.bar_style_btavg[highlighted])
 
     # Additional methods
-    def format_temperature(self, value):
-        """Format temperature"""
-        if self.cfg.units["temperature_unit"] == "Fahrenheit":
-            return f"{calc.celsius2fahrenheit(value):0{self.leading_zero}.0f}{self.sign_text}"
-        return f"{value:0{self.leading_zero}.0f}{self.sign_text}"
-
     def update_heatmap(self, class_name: str):
         """Update heatmap"""
-        heatmap_f = hmp.select_brake_heatmap_name(
-            hmp.set_predefined_brake_name(class_name, True)
+        heatmap_f = select_brake_heatmap_name(
+            set_predefined_brake_name(class_name, True)
         )
-        heatmap_r = hmp.select_brake_heatmap_name(
-            hmp.set_predefined_brake_name(class_name, False)
+        heatmap_r = select_brake_heatmap_name(
+            set_predefined_brake_name(class_name, False)
         )
-        heatmap_style_f = hmp.load_heatmap_style(
+        heatmap_style_f = load_heatmap_style(
             heatmap_name=heatmap_f,
-            default_name=hmp.HEATMAP_DEFAULT_BRAKE,
+            default_name=HEATMAP_DEFAULT_BRAKE,
             swap_style=not self.wcfg["swap_style"],
             fg_color=self.wcfg["font_color_temperature"],
             bg_color=self.wcfg["bkg_color_temperature"],
         )
-        heatmap_style_r = hmp.load_heatmap_style(
+        heatmap_style_r = load_heatmap_style(
             heatmap_name=heatmap_r,
-            default_name=hmp.HEATMAP_DEFAULT_BRAKE,
+            default_name=HEATMAP_DEFAULT_BRAKE,
             swap_style=not self.wcfg["swap_style"],
             fg_color=self.wcfg["font_color_temperature"],
             bg_color=self.wcfg["bkg_color_temperature"],

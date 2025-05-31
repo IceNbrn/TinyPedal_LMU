@@ -1,5 +1,5 @@
 #  TinyPedal is an open-source overlay application for racing simulation.
-#  Copyright (C) 2022-2024 TinyPedal developers, see contributors.md file
+#  Copyright (C) 2022-2025 TinyPedal developers, see contributors.md file
 #
 #  This file is part of TinyPedal.
 #
@@ -20,12 +20,12 @@
 Heading Widget
 """
 
-from PySide2.QtCore import Qt, QPointF, QRectF
-from PySide2.QtGui import QPainter, QPixmap, QPen, QBrush
+from PySide2.QtCore import QPointF, QRectF, Qt
+from PySide2.QtGui import QBrush, QPainter, QPen, QPixmap
 
 from .. import calculation as calc
 from ..api_control import api
-from ..file_constants import ImageFile
+from ..const_file import ImageFile
 from ._base import Overlay
 
 
