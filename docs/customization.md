@@ -29,6 +29,10 @@ TinyPedal stores all customization options in `JSON` format preset files, and ca
 
 All user preset files, by default, are located in `TinyPedal\settings` folder. Those `JSON` files can also be manually edited with text editor.
 
+`Double-Click` on a preset name in `Preset` tab to load selected preset.
+
+Click `Transfer` button to transfer settings from currently loaded preset to another preset. See [Preset Transfer](#preset-transfer) section for details.
+
 `Right-Click` on a preset name in `Preset` tab opens up a context menu that provides additional preset file management options:
 
 * Lock Preset  
@@ -73,6 +77,39 @@ A newer released version will auto-update old setting and add new setting after 
 
 ## Editing JSON file
 Customization can be done through various configuration dialogs and menus from main window. Manual editing `JSON` file is not recommended.
+
+[**`Back to Top`**](#)
+
+
+## Preset Transfer
+**Preset transfer dialog is used for transferring settings from one preset to another.**
+
+Note, you can only transfer settings from a currently loaded preset to another preset, this is done to ensure one-way transfer. A confirmation dialog will be shown before transfer.
+
+It is recommended to first load a preset, then unhide the preset and double-check if you wish to transfer its settings to another preset. For important preset, it is recommended to make a backup copy and lock the preset.
+
+To transfer settings from currently loaded preset to another specific preset, select a preset name from preset selector on the top right. Locked presets are not available from preset selector.
+
+To select one or more settings, select and check setting name from `Setting` list on the left side. Only selected settings will be transferred.
+
+To select one or more option types, select and check option type name from `Option Type` list on the right side. Only selected options will be transferred.
+
+To select or deselect all settings or option types from list, click `All` or `None` button on list header.
+
+Option types:
+- Enable State: widget or module enable state.
+- Feature Toggle: widget or module feature enable state, such as `enable_XXX` or `show_XXX`.
+- Update Interval: widget or module update interval and idle update interval.
+- Position: widget position.
+- Opacity: widget opacity.
+- Layout: widget layout.
+- Color: color options.
+- Font: font name, font weight, font size options.
+- Column Index: column index options.
+- Decimal Places: decimal places options.
+- Other Options: all other options that are not part of above option types.
+
+For example, to transfer all settings except widget position to another preset, select and check all settings from `setting` list, then select all options except `position` from `option type` list, and click `Transfer` button.
 
 [**`Back to Top`**](#)
 
@@ -1205,16 +1242,10 @@ Lap difference (percentage) threshold for tagging opponents as behind. Default i
 Set minimum axle rotation (radians per second) for calculating wheel radius and differential locking percent. Default value is `4`.
 
     maximum_rotation_difference_front, maximum_rotation_difference_rear
-Set maximum rotation difference (percentage) between left or right wheel rotation and same axle rotation for limiting wheel radius calculation. Setting higher difference value may result inaccurate wheel radius reading. Default value is `0.002`.
+Set maximum rotation difference between left or right wheel rotation and same axle rotation for limiting wheel radius calculation. Default value is `0.002` (0.2%). Setting higher difference value may result inaccurate wheel radius reading.
 
     cornering_radius_sampling_interval
 Set position sampling interval for cornering radius calculation. Value range in `5` to `100`. Default sampling interval is `10`, which is roughly 200ms interval between each recorded position. Higher value may result inaccuracy. Note, this option does not affect position recording interval.
-
-    last_vehicle_info
-Last saved vehicle identifier. This option is not for manual editing.
-
-    last_wheel_radius_front, last_wheel_radius_rear
-Last saved radius of front and rear wheels. This option is not for manual editing.
 
 [**`Back to Top`**](#)
 
@@ -1572,10 +1603,10 @@ Show minimum differential locking percent between left and right wheels on the s
 A `100%` reading indicates two wheels on the same axle are rotating at same speed; while `0%` indicates that one of the wheels is completely spinning or locked.
 
     off_throttle_threshold
-Set throttle threshold which counts as off throttle if throttle position is lower, value range in `0.0` to `1.0`. Default is `0.01`.
+Set percentage threshold which counts as off throttle if throttle position is lower, value range in `0.0` to `1.0`. Default is `0.01` (1%).
 
     on_throttle_threshold
-Set throttle threshold which counts as on throttle if throttle position is higher, value range in `0.0` to `1.0`. Default is `0.01`.
+Set percentage threshold which counts as on throttle if throttle position is higher, value range in `0.0` to `1.0`. Default is `0.01` (1%).
 
     power_locking_reset_cooldown, coast_locking_reset_cooldown
 Set cooldown duration (seconds) before resetting minimum power or coast locking percent value if value hasn't changed during cooldown period. Default is `5` seconds.
@@ -2286,7 +2317,7 @@ Set minimum gear threshold for P2P ready indicator.
 Set minimum speed threshold for P2P ready indicator, unit in KPH.
 
     activation_threshold_throttle
-Set minimum throttle input percentage threshold for P2P ready indicator, value range in `0.0` to `1.0`.
+Set minimum throttle input percentage threshold for P2P ready indicator, value range in `0.0` to `1.0`. Default is `0.6` (60%).
 
     minimum_activation_time_delay
 Set minimum time delay between each P2P activation, unit in seconds.
@@ -3280,8 +3311,8 @@ Set percentage threshold for triggering wheel slip warning under acceleration. `
     show_reference_line
 Show reference line.
 
-    reference_line_*_style
-Set reference line vertical offset relative to pedal, value in percentage.
+    reference_line_*_offset
+Set reference line vertical offset position (percentage) relative to pedal, value range in `0.0` to `1.0`.
 
     reference_line_*_style
 Set reference line style. `0` for solid line, `1` for dashed line.
