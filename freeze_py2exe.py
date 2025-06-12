@@ -50,6 +50,7 @@ EXCLUDE_MODULES = [
     "multiprocessing",
     # "email",
     # "http",
+    # "urllib",
 ]
 
 IMAGE_FILES = [

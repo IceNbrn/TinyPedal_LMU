@@ -27,6 +27,10 @@ from contextlib import asynccontextmanager
 from time import perf_counter
 from typing import Callable
 
+# Default limit from asyncio.open_connection is 2 ** 16
+# Lower limit to avoid getting incomplete data
+BUFFER_LIMIT = 32768  # 2 ** 15
+
 
 def set_header_get(uri: str = "/", host: str = "localhost") -> bytes:
     """Set GET request header"""
@@ -34,7 +38,7 @@ def set_header_get(uri: str = "/", host: str = "localhost") -> bytes:
     return f"GET {uri} HTTP/1.1\r\nHost: {host}\r\n\r\n".encode()
 
 
-async def parse_response(reader: StreamReader) -> bytes:
+async def parse_response(reader: StreamReader) -> bytes | bytearray:
     """Parse response"""
     # Get headers
     header_bytes = await reader.readuntil(b"\r\n\r\n")
@@ -54,14 +58,22 @@ async def parse_response(reader: StreamReader) -> bytes:
                 body_length = 0
         if body_length <= 0:
             return b""
-        return await reader.read(body_length)
+        if body_length <= BUFFER_LIMIT:
+            return await reader.read(body_length)
+        # Exceeded buffer limit
+        temp_bytes = bytearray()
+        while body_length > BUFFER_LIMIT:
+            temp_bytes.extend(await reader.read(BUFFER_LIMIT))
+            body_length -= BUFFER_LIMIT
+        temp_bytes.extend(await reader.read(body_length))
+        return temp_bytes
     # Get chunked data
     temp_bytes = bytearray()
     while True:
         if (await reader.readuntil()) == b"0\r\n":  # end chunk
             break
         temp_bytes[-2:] = await reader.readuntil()  # cut off CRLF
-    return bytes(temp_bytes)
+    return temp_bytes
 
 
 @asynccontextmanager
@@ -102,12 +114,12 @@ async def _print_result(test_func: Callable):
 async def _test_async_get(timeout: float):
     """Test run"""
     req1 = set_header_get("/rest/sessions/setting/SESSSET_race_timescale")
-    req2 = set_header_get("/rest/sessions/weather")
+    req2 = set_header_get("/rest/garage/getPlayerGarageData")
     task_group = [
         _print_result(get_response(req1, "localhost", 5397, timeout)),  # RF2
         _print_result(get_response(req2, "localhost", 5397, timeout)),  # RF2
         _print_result(get_response(req1, "localhost", 6397, timeout)),  # LMU
-        _print_result(get_response(req1, "localhost", 6397, timeout)),  # LMU
+        _print_result(get_response(req2, "localhost", 6397, timeout)),  # LMU
     ]
     await asyncio.gather(*task_group)
 
