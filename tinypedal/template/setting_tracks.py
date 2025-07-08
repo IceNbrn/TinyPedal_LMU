@@ -17,29 +17,15 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Constants
+Default tracks template
 """
 
-import platform
+from types import MappingProxyType
 
-from . import set_app_version, set_global_user_path, version
+TRACKINFO_DEFAULT = MappingProxyType({
+    "pit_entry": 0.0,
+    "pit_exit": 0.0,
+    "pit_speed": 0.0,
+})
 
-# System info
-PLATFORM = platform.system()
-
-# App version
-VERSION = set_app_version(version.__version__, version.DEVELOPMENT)
-
-# App info
-APP_NAME = "TinyPedal"
-COPYRIGHT = "Copyright (C) 2022-2025 TinyPedal developers"
-DESCRIPTION = "A Free and Open Source telemetry overlay application for racing simulation."
-LICENSE = "Licensed under the GNU General Public License v3.0 or later."
-
-# URL
-URL_WEBSITE = "https://github.com/s-victor/TinyPedal"
-URL_USER_GUIDE = "https://github.com/s-victor/TinyPedal/wiki/User-Guide"
-URL_FAQ = "https://github.com/s-victor/TinyPedal/wiki/Frequently-Asked-Questions"
-
-# Global path
-PATH_GLOBAL = set_global_user_path(APP_NAME, PLATFORM)
+TRACKS_DEFAULT = {}

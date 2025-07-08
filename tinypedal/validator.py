@@ -26,14 +26,26 @@ import logging
 import os
 import re
 import time
+from functools import wraps
 from math import isfinite
-from typing import Any
+from typing import Any, Sequence
 
 from .const_common import MAX_SECONDS
 from .const_file import FileExt
 from .regex_pattern import CFG_INVALID_FILENAME, rex_hex_color
 
 logger = logging.getLogger(__name__)
+
+
+# Decorator
+def generator_init(func):
+    """Initialize generator for send() method"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        generator = func(*args, **kwargs)
+        next(generator)
+        return generator
+    return wrapper
 
 
 # Value validate
@@ -89,6 +101,14 @@ def is_same_session(
     )
 
 
+def purge_data_key(loaded_dict: dict, ref_keys: Sequence[str]) -> dict:
+    """Purge unwanted key from dict"""
+    for key in tuple(loaded_dict):
+        if key not in ref_keys:
+            loaded_dict.pop(key)
+    return loaded_dict
+
+
 # File validate
 def file_last_modified(filepath: str = "", filename: str = "", extension: str = "") -> float:
     """Check file last modified time, 0 if file not exist"""
@@ -123,6 +143,21 @@ def valid_delta_set(data: tuple) -> tuple:
     return data
 
 
+def valid_delta_raw(dataset: list[tuple[float, float]], final: float, column: int) -> bool:
+    """Validate raw delta data set"""
+    try:
+        if len(dataset) <= 1:
+            return False
+        # Remove rows if source value higher than final value
+        while dataset[-1][column] > final:
+            dataset.pop()
+            if not dataset:
+                return False
+        return True
+    except (AttributeError, TypeError, IndexError):
+        return False
+
+
 # Value type validate
 def valid_value_type(value: Any, default: Any) -> Any:
     """Validate if value is same type as default, return default value if False"""
@@ -141,9 +176,10 @@ def convert_value_type(value: Any, default: Any, target_type: type) -> Any:
 
 def dict_value_type(data: dict, default_data: dict) -> dict:
     """Validate and correct dictionary value type"""
-    for key, value in data.items():
-        data[key] = type(default_data[key])(value)
-    return data
+    return {
+        key: type(def_value)(data.get(key, def_value))
+        for key, def_value in default_data.items()
+    }
 
 
 # Color validate
@@ -165,6 +201,7 @@ def is_clock_format(_format: str) -> bool:
 
 
 # Desync check
+@generator_init
 def vehicle_position_sync(max_diff: float = 200, max_desync: int = 20):
     """Vehicle position synchronization
 

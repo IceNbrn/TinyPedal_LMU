@@ -26,7 +26,7 @@ from ..api_control import api
 from ..const_common import MAX_SECONDS
 from ..module_info import SectorsInfo, minfo
 from ..userfile.sector_best import load_sector_best_file, save_sector_best_file
-from ..validator import valid_sectors
+from ..validator import generator_init, valid_sectors
 from ._base import DataModule, round6
 
 
@@ -69,8 +69,6 @@ class Realtime(DataModule):
                     else:
                         gen_calc_sectors_session = calc_sectors(minfo.sectors, best_s_tb, best_s_pb)
                         gen_calc_sectors_alltime = calc_sectors(None, all_best_s_tb, all_best_s_pb)
-                    next(gen_calc_sectors_session)
-                    next(gen_calc_sectors_alltime)
 
                 # Run calculation
                 tele_sectors = telemetry_sectors()
@@ -108,7 +106,8 @@ def telemetry_sectors() -> tuple[int, float, float, float, float]:
     return sector_idx, laptime_valid, curr_sector1, curr_sector2, last_sector2
 
 
-def calc_sectors(output: SectorsInfo, best_s_tb: list, best_s_pb: list):
+@generator_init
+def calc_sectors(output: SectorsInfo, best_s_tb: list[float], best_s_pb: list[float]):
     """Calculate sectors data"""
     no_delta_s = True
     new_best = False  # save check whether new sector best time is set
@@ -201,8 +200,8 @@ def calc_sectors(output: SectorsInfo, best_s_tb: list, best_s_pb: list):
             if output:
                 output.noDeltaSector = no_delta_s
                 output.sectorIndex = sector_idx
-                output.sectorPrev = prev_s
-                output.sectorBestTB = best_s_tb
-                output.sectorBestPB = best_s_pb
-                output.deltaSectorBestPB = delta_s_pb
-                output.deltaSectorBestTB = delta_s_tb
+                output.sectorPrev[:] = prev_s
+                output.sectorBestTB[:] = best_s_tb
+                output.sectorBestPB[:] = best_s_pb
+                output.deltaSectorBestPB[:] = delta_s_pb
+                output.deltaSectorBestTB[:] = delta_s_tb

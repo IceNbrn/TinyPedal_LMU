@@ -20,6 +20,12 @@
 Default classes template
 """
 
+from types import MappingProxyType
+
+CLASSINFO_DEFAULT = MappingProxyType({
+    "alias": "???",
+    "color": "#0044AA",
+})
 
 CLASSES_DEFAULT = {
     "Hyper": {

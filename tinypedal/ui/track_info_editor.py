@@ -34,9 +34,8 @@ from PySide2.QtWidgets import (
 
 from ..api_control import api
 from ..const_file import ConfigType
-from ..module_control import wctrl
 from ..setting import cfg, copy_setting
-from ..userfile.track_info import TRACKINFO_DEFAULT
+from ..template.setting_tracks import TRACKINFO_DEFAULT
 from ._common import (
     BaseEditor,
     CompactButton,
@@ -216,5 +215,5 @@ class TrackInfoEditor(BaseEditor):
         cfg.save(0, cfg_type=ConfigType.TRACKS)
         while cfg.is_saving:  # wait saving finish
             time.sleep(0.01)
-        wctrl.reload()
+        self.reloading()
         self.set_unmodified()

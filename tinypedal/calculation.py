@@ -215,6 +215,17 @@ def relative_time_gap(rel_dist: float, plr_speed: float, opt_speed: float) -> fl
     return 0
 
 
+def pitlane_length(track_length: float, pit_entry: float, pit_exit: float) -> float:
+    """Calculate pitlane length"""
+    if pit_entry != 0 != pit_exit:  # check valid position
+        pit_length = pit_exit - pit_entry
+        if pit_entry > pit_exit:
+            pit_length += track_length
+    else:
+        pit_length = 0.0
+    return pit_length
+
+
 def linear_interp(x: float, x1: float, y1: float, x2: float, y2: float) -> float:
     """Linear interpolation"""
     x_diff = x2 - x1
@@ -340,20 +351,21 @@ def sec2stinttime(seconds: float) -> str:
 
 
 def delta_telemetry(
-    dataset: list, position: float, target: float, condition: bool = True) -> float:
+    dataset: list, position: float, target: float,
+    condition: bool = True, position_column: int = 0, target_column: int = 1) -> float:
     """Calculate delta telemetry data"""
     if not condition:
         return 0
     index_higher = binary_search_higher_column(
-        dataset, position, 0, len(dataset) - 1)
+        dataset, position, 0, len(dataset) - 1, position_column)
     if index_higher > 0:
         index_lower = index_higher - 1
         return target - linear_interp(
             position,
-            dataset[index_lower][0],
-            dataset[index_lower][1],
-            dataset[index_higher][0],
-            dataset[index_higher][1],
+            dataset[index_lower][position_column],
+            dataset[index_lower][target_column],
+            dataset[index_higher][position_column],
+            dataset[index_higher][target_column],
         )
     return 0
 
@@ -706,13 +718,10 @@ def fuel_to_energy_ratio(fuel: float, energy: float) -> float:
 
 
 # Wear
-def wear_lifespan_in_laps(
-    wear_curr: float, wear_last_lap: float, wear_curr_lap: float) -> float:
+def wear_lifespan_in_laps(remaining: float, wear_last_lap: float) -> float:
     """Wear lifespan in laps = remaining / last lap wear"""
-    if wear_curr_lap > wear_last_lap > 0:
-        est_laps = wear_curr / wear_curr_lap
-    elif wear_last_lap > 0:
-        est_laps = wear_curr / wear_last_lap
+    if wear_last_lap > 0:
+        est_laps = remaining / wear_last_lap
     else:
         est_laps = 999
     if est_laps > 999:
@@ -720,20 +729,30 @@ def wear_lifespan_in_laps(
     return est_laps
 
 
-def wear_lifespan_in_mins(
-    wear_curr: float, wear_last_lap: float, wear_curr_lap: float, laptime: float) -> float:
+def wear_lifespan_in_mins(remaining: float, wear_last_lap: float, laptime: float) -> float:
     """Wear lifespan in minutes = remaining / last lap wear * laptime / 60"""
     if laptime <= 0:
         return 999
-    if wear_curr_lap > wear_last_lap > 0:
-        est_mins = wear_curr / wear_curr_lap * laptime / 60
-    elif wear_last_lap > 0:
-        est_mins = wear_curr / wear_last_lap * laptime / 60
+    if wear_last_lap > 0:
+        est_mins = remaining / wear_last_lap * laptime / 60
     else:
         est_mins = 999
     if est_mins > 999:
         est_mins = 999
     return est_mins
+
+
+def end_stint_tread(remaining: float, wear_last_lap: float, laps_remain: float) -> float:
+    """Estimate end-stint remaining tyre tread (%) before pitting"""
+    return remaining - wear_last_lap * laps_remain
+
+
+def wear_weighted(wear_curr_lap: float, wear_last_lap: float, lap_into: float) -> float:
+    """Weighted wear difference between last and current lap based on lap progression"""
+    if wear_curr_lap >= wear_last_lap:
+        return wear_curr_lap
+    lap_into *= lap_into  # square
+    return wear_curr_lap * lap_into + wear_last_lap * (1 - lap_into)
 
 
 # Wheel

@@ -217,7 +217,6 @@ class Realtime(Overlay):
             )
 
         # Last data
-        self.checked = False
         self.pit_timer = PitTimer(self.wcfg["pit_time_highlight_duration"])
         self.green_timer = GreenFlagTimer(self.wcfg["green_flag_duration"])
         self.blue_timer = BlueFlagTimer(self.wcfg["show_blue_flag_for_race_only"])
@@ -227,78 +226,66 @@ class Realtime(Overlay):
             self.wcfg["traffic_low_speed_threshold"],
         )
 
+    def post_update(self):
+        self.pit_timer.reset()
+        self.blue_timer.reset()
+        self.traffic_timer.reset()
+        self.green_timer.reset()
+
     def timerEvent(self, event):
         """Update when vehicle on track"""
+        # Read state data
+        lap_etime = api.read.timing.elapsed()
+        in_pits = api.read.vehicle.in_pits()
+        in_race = api.read.session.in_race()
 
-        if not self.state:
-            return
+        # Pit timer
+        if self.wcfg["show_pit_timer"]:
+            if in_pits and api.read.vehicle.in_garage():
+                pitting_state = MAX_SECONDS
+            else:
+                pitting_state = self.pit_timer.update(in_pits, lap_etime)
+            self.update_pit_timer(self.bar_pit_timer, pitting_state)
 
-        if self.state.active:
+        # Low fuel update
+        if self.wcfg["show_low_fuel"]:
+            fuel_usage = self.is_lowfuel(in_race)
+            self.update_lowfuel(self.bar_lowfuel, fuel_usage)
 
-            # Reset switch
-            if not self.checked:
-                self.checked = True
+        # Pit limiter
+        if self.wcfg["show_speed_limiter"]:
+            limiter_state = api.read.switch.speed_limiter()
+            self.update_limiter(self.bar_limiter, limiter_state)
 
-            # Read state data
-            lap_etime = api.read.timing.elapsed()
-            in_pits = api.read.vehicle.in_pits()
-            in_race = api.read.session.in_race()
+        # Blue flag
+        if self.wcfg["show_blue_flag"]:
+            blue_state = self.blue_timer.update(in_race, lap_etime)
+            self.update_blueflag(self.bar_blueflag, blue_state)
 
-            # Pit timer
-            if self.wcfg["show_pit_timer"]:
-                if in_pits and api.read.vehicle.in_garage():
-                    pitting_state = MAX_SECONDS
-                else:
-                    pitting_state = self.pit_timer.update(in_pits, lap_etime)
-                self.update_pit_timer(self.bar_pit_timer, pitting_state)
+        # Yellow flag
+        if self.wcfg["show_yellow_flag"]:
+            yellow_state = self.yellow_flag_state(in_race)
+            self.update_yellowflag(self.bar_yellowflag, yellow_state)
 
-            # Low fuel update
-            if self.wcfg["show_low_fuel"]:
-                fuel_usage = self.is_lowfuel(in_race)
-                self.update_lowfuel(self.bar_lowfuel, fuel_usage)
+        # Start lights
+        if self.wcfg["show_startlights"]:
+            green_state = self.green_timer.update(lap_etime)
+            self.update_startlights(self.bar_startlights, green_state)
 
-            # Pit limiter
-            if self.wcfg["show_speed_limiter"]:
-                limiter_state = api.read.switch.speed_limiter()
-                self.update_limiter(self.bar_limiter, limiter_state)
+        # Incoming traffic
+        if self.wcfg["show_traffic"]:
+            traffic = self.traffic_timer.update(in_pits, lap_etime)
+            self.update_traffic(self.bar_traffic, traffic)
 
-            # Blue flag
-            if self.wcfg["show_blue_flag"]:
-                blue_state = self.blue_timer.update(in_race, lap_etime)
-                self.update_blueflag(self.bar_blueflag, blue_state)
+        # Pit request
+        if self.wcfg["show_pit_request"]:
+            pit_request = self.pit_in_countdown()
+            self.update_pit_request(self.bar_pit_request, pit_request)
 
-            # Yellow flag
-            if self.wcfg["show_yellow_flag"]:
-                yellow_state = self.yellow_flag_state(in_race)
-                self.update_yellowflag(self.bar_yellowflag, yellow_state)
-
-            # Start lights
-            if self.wcfg["show_startlights"]:
-                green_state = self.green_timer.update(lap_etime)
-                self.update_startlights(self.bar_startlights, green_state)
-
-            # Incoming traffic
-            if self.wcfg["show_traffic"]:
-                traffic = self.traffic_timer.update(in_pits, lap_etime)
-                self.update_traffic(self.bar_traffic, traffic)
-
-            # Pit request
-            if self.wcfg["show_pit_request"]:
-                pit_request = self.pit_in_countdown()
-                self.update_pit_request(self.bar_pit_request, pit_request)
-
-            # Finish state
-            if self.wcfg["show_finish_state"]:
-                finish_state = api.read.vehicle.finish_state()
-                self.update_finish_state(self.bar_finish_state, finish_state)
-
-        else:
-            if self.checked:
-                self.checked = False
-                self.pit_timer.reset()
-                self.blue_timer.reset()
-                self.traffic_timer.reset()
-                self.green_timer.reset()
+        # Finish state
+        if self.wcfg["show_finish_state"]:
+            finish_state = api.read.vehicle.finish_state()
+            self.update_finish_state(self.bar_finish_state, finish_state)
 
     # GUI update methods
     def update_pit_timer(self, target, data):

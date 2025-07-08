@@ -21,10 +21,8 @@ Brake Wear Widget
 """
 
 from .. import calculation as calc
-from ..api_control import api
 from ..const_common import TEXT_NA
 from ..module_info import minfo
-from ..userfile.heatmap import select_brake_failure_thickness, set_predefined_brake_name
 from ._base import Overlay
 
 
@@ -44,8 +42,6 @@ class Realtime(Overlay):
         # Config variable
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         bar_width = font_m.width * 4 + bar_padx
-        self.freeze_duration = min(max(self.wcfg["freeze_duration"], 0), 30)
-        self.failure_thickness = (0, 0, 0, 0)
         self.threshold_remaining = min(max(self.wcfg["warning_threshold_remaining"], 0), 100) * 0.01
 
         # Base style
@@ -60,10 +56,10 @@ class Realtime(Overlay):
             font_size=int(self.wcfg['font_size'] * 0.8)
         )
 
-        # Remaining wear
+        # Remaining brake thickness
         if self.wcfg["show_remaining"]:
-            layout_wear = self.set_grid_layout()
-            self.bar_style_wear = (
+            layout_remain = self.set_grid_layout()
+            self.bar_style_remain = (
                 self.set_qss(
                     fg_color=self.wcfg["font_color_remaining"],
                     bg_color=self.wcfg["bkg_color_remaining"]),
@@ -71,28 +67,28 @@ class Realtime(Overlay):
                     fg_color=self.wcfg["font_color_warning"],
                     bg_color=self.wcfg["bkg_color_remaining"])
             )
-            self.bars_wear = self.set_qlabel(
+            self.bars_remain = self.set_qlabel(
                 text=TEXT_NA,
-                style=self.bar_style_wear[0],
+                style=self.bar_style_remain[0],
                 width=bar_width,
                 count=4,
                 last=0,
             )
             self.set_grid_layout_quad(
-                layout=layout_wear,
-                targets=self.bars_wear,
+                layout=layout_remain,
+                targets=self.bars_remain,
             )
             self.set_primary_orient(
-                target=layout_wear,
+                target=layout_remain,
                 column=self.wcfg["column_index_remaining"],
             )
 
             if self.wcfg["show_caption"]:
-                cap_wear = self.set_qlabel(
+                cap_remain = self.set_qlabel(
                     text="brak wear",
                     style=bar_style_desc,
                 )
-                layout_wear.addWidget(cap_wear, 0, 0, 1, 0)
+                layout_remain.addWidget(cap_remain, 0, 0, 1, 0)
 
         # Wear difference
         if self.wcfg["show_wear_difference"]:
@@ -122,7 +118,7 @@ class Realtime(Overlay):
 
             if self.wcfg["show_caption"]:
                 cap_diff = self.set_qlabel(
-                    text="brak diff",
+                    text="wear diff",
                     style=bar_style_desc,
                 )
                 layout_diff.addWidget(cap_diff, 0, 0, 1, 0)
@@ -193,104 +189,48 @@ class Realtime(Overlay):
                 )
                 layout_mins.addWidget(cap_mins, 0, 0, 1, 0)
 
-        # Last data
-        self.checked = False
-        self.last_class_name = None
-        self.last_lap_stime = 0  # last lap start time
-        self.wear_prev = [0] * 4  # previous moment remaining wear
-        self.wear_curr_lap = [0] * 4  # live wear update of current lap
-        self.wear_last_lap = [0] * 4  # total wear of last lap
-        self.wear_stint_start = [0] * 4  # remaining wear at start of stint
-
     def timerEvent(self, event):
         """Update when vehicle on track"""
-        if self.state.active:
+        laptime_pace = minfo.delta.lapTimePace
+        for idx in range(4):
+            brake_curr = minfo.wheels.currentBrakeThickness[idx]
+            max_thickness = minfo.wheels.maxBrakeThickness[idx]
+            est_wear = minfo.wheels.estimatedBrakeWear[idx]
 
-            # Reset switch
-            if not self.checked:
-                self.checked = True
+            if self.wcfg["show_thickness"]:
+                brake_curr *= max_thickness / 100
+                est_wear *= max_thickness / 100
 
-            lap_stime = api.read.timing.start()
-            lap_etime = api.read.timing.elapsed()
-            class_name = api.read.vehicle.class_name()
+            # Remaining brake thickness
+            if self.wcfg["show_remaining"]:
+                if self.wcfg["show_thickness"]:
+                    threshold_remaining = self.threshold_remaining * max_thickness
+                else:
+                    threshold_remaining = self.threshold_remaining * 100
+                self.update_remain(self.bars_remain[idx], brake_curr, threshold_remaining)
 
-            # Brake thickness in millimeter
-            wear_curr = [value * 1000 for value in minfo.restapi.brakeWear]
+            # Wear differences
+            if self.wcfg["show_wear_difference"]:
+                self.update_diff(self.bars_diff[idx], est_wear)
 
-            # Update failure thickness
-            if self.last_class_name != class_name:
-                self.last_class_name = class_name
-                self.update_failure_thickness = (class_name)
+            # Estimated lifespan in laps
+            if self.wcfg["show_lifespan_laps"]:
+                wear_laps = calc.wear_lifespan_in_laps(brake_curr, est_wear)
+                self.update_laps(self.bars_laps[idx], wear_laps)
 
-            if lap_stime != self.last_lap_stime:
-                self.wear_last_lap = self.wear_curr_lap
-                self.wear_curr_lap = [0] * 4  # reset real time wear
-                self.last_lap_stime = lap_stime  # reset time stamp counter
-
-            for idx in range(4):
-                # Calculate effective thickness
-                wear_curr[idx] -= self.failure_thickness[idx]
-
-                # Calibrate max thickness
-                if self.wear_stint_start[idx] < wear_curr[idx]:
-                    self.wear_stint_start[idx] = wear_curr[idx]
-
-                if not self.wear_stint_start[idx]:  # bypass invalid value
-                    wear_curr[idx] = 0
-                elif not self.wcfg["show_thickness"]:  # convert to percent
-                    wear_curr[idx] *= 100 / self.wear_stint_start[idx]
-
-                # Update wear differences & accumulated wear
-                wear_diff = self.wear_prev[idx] - wear_curr[idx]
-                self.wear_prev[idx] = wear_curr[idx]
-                if wear_diff > 0:
-                    self.wear_curr_lap[idx] += wear_diff
-
-                # Remaining wear
-                if self.wcfg["show_remaining"]:
-                    if self.wcfg["show_thickness"]:
-                        threshold_remaining = self.threshold_remaining * self.wear_stint_start[idx]
-                    else:
-                        threshold_remaining = self.threshold_remaining * 100
-                    self.update_wear(self.bars_wear[idx], wear_curr[idx], threshold_remaining)
-
-                # Wear differences
-                if self.wcfg["show_wear_difference"]:
-                    if (self.wcfg["show_live_wear_difference"] and
-                        lap_etime - lap_stime > self.freeze_duration):
-                        self.update_diff(self.bars_diff[idx], self.wear_curr_lap[idx])
-                    else:  # Last lap diff
-                        self.update_diff(self.bars_diff[idx], self.wear_last_lap[idx])
-
-                # Estimated lifespan in laps
-                if self.wcfg["show_lifespan_laps"]:
-                    wear_laps = calc.wear_lifespan_in_laps(
-                        wear_curr[idx], self.wear_last_lap[idx], self.wear_curr_lap[idx])
-                    self.update_laps(self.bars_laps[idx], wear_laps)
-
-                # Estimated lifespan in minutes
-                if self.wcfg["show_lifespan_minutes"]:
-                    wear_mins = calc.wear_lifespan_in_mins(
-                        wear_curr[idx], self.wear_last_lap[idx], self.wear_curr_lap[idx],
-                        minfo.delta.lapTimePace)
-                    self.update_mins(self.bars_mins[idx], wear_mins)
-
-        else:
-            if self.checked:
-                self.checked = False
-                self.wear_prev = [0] * 4
-                self.wear_curr_lap = [0] * 4
-                self.wear_last_lap = [0] * 4
-                self.wear_stint_start = [0] * 4
+            # Estimated lifespan in minutes
+            if self.wcfg["show_lifespan_minutes"]:
+                wear_mins = calc.wear_lifespan_in_mins(brake_curr, est_wear, laptime_pace)
+                self.update_mins(self.bars_mins[idx], wear_mins)
 
     # GUI update methods
-    def update_wear(self, target, data, threshold_remaining):
-        """Remaining wear"""
+    def update_remain(self, target, data, threshold_remaining):
+        """Remaining brake thickness"""
         if target.last != data:
             target.last = data
             target.setText(self.format_num(data))
             target.setStyleSheet(
-                self.bar_style_wear[data <= threshold_remaining]
+                self.bar_style_remain[data <= threshold_remaining]
             )
 
     def update_diff(self, target, data):
@@ -325,18 +265,3 @@ class Realtime(Overlay):
     def format_num(value):
         """Format number"""
         return f"{value:.2f}"[:4].strip(".")
-
-    def update_failure_thickness(self, class_name: str):
-        """Update failure thickness"""
-        failure_thickness_f = select_brake_failure_thickness(
-            set_predefined_brake_name(class_name, True)
-        )
-        failure_thickness_r = select_brake_failure_thickness(
-            set_predefined_brake_name(class_name, False)
-        )
-        self.failure_thickness = (
-            failure_thickness_f,
-            failure_thickness_f,
-            failure_thickness_r,
-            failure_thickness_r,
-        )

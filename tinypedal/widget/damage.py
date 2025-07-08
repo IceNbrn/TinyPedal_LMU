@@ -25,6 +25,7 @@ from PySide2.QtGui import QBrush, QPainter, QPen
 
 from .. import calculation as calc
 from ..api_control import api
+from ..const_common import WHEELS_ZERO
 from ..module_info import minfo
 from ._base import Overlay
 
@@ -113,35 +114,37 @@ class Realtime(Overlay):
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
-        if self.state.active:
+        # Last impact time & position
+        if self.wcfg["show_last_impact_cone"]:
+            impact_time = api.read.vehicle.impact_time()
 
-            # Last impact time & position
-            if self.wcfg["show_last_impact_cone"]:
-                impact_time = api.read.vehicle.impact_time()
-
-                if self.last_impact_time != impact_time:
-                    self.last_impact_time = impact_time
-                    self.last_impact_expired = api.read.vehicle.impact_magnitude() < 1
-                    self.update()
-
-                if (not self.last_impact_expired and
-                    api.read.timing.elapsed() - self.last_impact_time
-                    > self.wcfg["last_impact_cone_duration"]):
-                    self.last_impact_expired = True
-                    self.update()
-
-            # Damage body
-            temp_damage_body = api.read.vehicle.damage_severity()
-            if self.damage_body != temp_damage_body:
-                self.damage_body = temp_damage_body
+            if self.last_impact_time != impact_time:
+                self.last_impact_time = impact_time
+                self.last_impact_expired = api.read.vehicle.impact_magnitude() < 1
                 self.update()
 
-            # Damage wheel
-            temp_damage_wheel = tuple(map(self.set_damage_level_wheel,
-                api.read.wheel.is_detached(), minfo.restapi.suspensionDamage))
-            if self.damage_wheel != temp_damage_wheel:
-                self.damage_wheel = temp_damage_wheel
+            if (not self.last_impact_expired and
+                api.read.timing.elapsed() - self.last_impact_time
+                > self.wcfg["last_impact_cone_duration"]):
+                self.last_impact_expired = True
                 self.update()
+
+        # Damage body
+        temp_damage_body = api.read.vehicle.damage_severity()
+        if self.damage_body != temp_damage_body:
+            self.damage_body = temp_damage_body
+            self.update()
+
+        # Damage wheel
+        susp_damage = minfo.restapi.suspensionDamage
+        if len(susp_damage) != 4:  # skip if data invalid
+            susp_damage = WHEELS_ZERO
+
+        temp_damage_wheel = tuple(map(self.set_damage_level_wheel,
+            api.read.wheel.is_detached(), susp_damage))
+        if self.damage_wheel != temp_damage_wheel:
+            self.damage_wheel = temp_damage_wheel
+            self.update()
 
     # GUI update methods
     def paintEvent(self, event):

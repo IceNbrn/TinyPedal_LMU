@@ -142,16 +142,11 @@ class Realtime(Overlay):
         self.last_tyre_life = 0
         self.last_fuel_curr = 0
 
+    def post_update(self):
+        self.reset_stint = True
+
     def timerEvent(self, event):
         """Update when vehicle on track"""
-        if self.state.active:
-            self.update_predication()
-        else:
-            if not self.reset_stint:
-                self.reset_stint = True
-
-    def update_predication(self):
-        """Update predication"""
         in_pits = api.read.vehicle.in_pits()
         tyre_life = sum(api.read.tyre.wear())
         lap_num = api.read.lap.number()
@@ -189,16 +184,13 @@ class Realtime(Overlay):
         est_runlaps = floor(round(calc.end_stint_laps(
             total_fuel_remaining, fuel_est), 1)) - self.center_slot
 
-        # Update slots
-        for index in range(self.total_slot):
-            if index == 0:
-                # Fuel or energy
-                self.update_energy_type(self.bars_delta[index], energy_type)
-                # Last lap consumption
-                self.update_target_use(
-                    self.bars_target_use[index], fuel_used_last_raw, energy_type)
-                continue
+        # Fuel or energy
+        self.update_energy_type(self.bars_delta[0], energy_type)
+        # Last lap consumption
+        self.update_target_use(self.bars_target_use[0], fuel_used_last_raw, energy_type)
 
+        # Update slots
+        for index in range(1, self.total_slot):
             # Progressive fuel saving
             total_laps_target = est_runlaps + index
 

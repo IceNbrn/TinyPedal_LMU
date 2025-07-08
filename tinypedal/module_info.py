@@ -33,8 +33,8 @@ from .const_common import (
     MAX_SECONDS,
     MAX_VEHICLES,
     PITEST_DEFAULT,
-    QUALIFY_DEFAULT,
     REL_TIME_DEFAULT,
+    WHEELS_ZERO,
 )
 
 
@@ -48,6 +48,7 @@ class ConsumptionDataSet(NamedTuple):
     lastLapUsedEnergy: float = 0.0
     batteryDrainLast: float = 0.0
     batteryRegenLast: float = 0.0
+    tyreAvgWearLast: float = 0.0
     capacityFuel: float = 0.0
 
 
@@ -285,14 +286,12 @@ class RelativeInfo:
         "relative",
         "standings",
         "classes",
-        "qualifications",
     )
 
     def __init__(self):
-        self.relative: list[list | tuple] = [REL_TIME_DEFAULT]
+        self.relative: list[list] = [REL_TIME_DEFAULT]
         self.standings: list[int] = [-1]
         self.classes: list[list] = [[0, 1, "", 0.0, -1, -1, False]]
-        self.qualifications: list[tuple[int, int]] = [QUALIFY_DEFAULT]
 
 
 class RestAPIInfo:
@@ -327,8 +326,8 @@ class RestAPIInfo:
         self.forecastPractice: list[WeatherNode] | None = None
         self.forecastQualify: list[WeatherNode] | None = None
         self.forecastRace: list[WeatherNode] | None = None
-        self.brakeWear: list[float] = [-1.0] * 4
-        self.suspensionDamage: list[float] = [-1.0] * 4
+        self.brakeWear: list[float] = []
+        self.suspensionDamage: list[float] = []
         self.pitStopEstimate: tuple[float, float, float, float, int] = PITEST_DEFAULT
 
 
@@ -346,14 +345,13 @@ class SectorsInfo:
     )
 
     def __init__(self):
-        temp_sector = [MAX_SECONDS] * 3
         self.noDeltaSector: bool = True
         self.sectorIndex: int = -1
-        self.sectorPrev: list[float] = temp_sector
-        self.sectorBestTB: list[float] = temp_sector
-        self.sectorBestPB: list[float] = temp_sector
-        self.deltaSectorBestPB: list[float] = temp_sector
-        self.deltaSectorBestTB: list[float] = temp_sector
+        self.sectorPrev: list[float] = [MAX_SECONDS] * 3
+        self.sectorBestTB: list[float] = [MAX_SECONDS] * 3
+        self.sectorBestPB: list[float] = [MAX_SECONDS] * 3
+        self.deltaSectorBestPB: list[float] = [MAX_SECONDS] * 3
+        self.deltaSectorBestTB: list[float] = [MAX_SECONDS] * 3
 
 
 class StatsInfo:
@@ -371,7 +369,7 @@ class VehiclesInfo:
     """Vehicles module output data"""
 
     __slots__ = (
-        "total",
+        "totalVehicles",
         "leaderIndex",
         "playerIndex",
         "dataSet",
@@ -384,7 +382,7 @@ class VehiclesInfo:
     )
 
     def __init__(self):
-        self.total: int = 0
+        self.totalVehicles: int = 0
         self.leaderIndex: int = 0
         self.playerIndex: int = -1
         self.dataSet: tuple[VehicleDataSet, ...] = tuple(
@@ -527,13 +525,27 @@ class WheelsInfo:
         "lockingPercentRear",
         "corneringRadius",
         "slipRatio",
+        "currentTreadDepth",
+        "lastLapTreadWear",
+        "estimatedTreadWear",
+        "estimatedValidTreadWear",
+        "maxBrakeThickness",
+        "currentBrakeThickness",
+        "estimatedBrakeWear",
     )
 
     def __init__(self):
         self.lockingPercentFront: float = 0.0
         self.lockingPercentRear: float = 0.0
         self.corneringRadius: float = 0.0
-        self.slipRatio: list[float] = [0.0] * 4
+        self.slipRatio: list[float] = list(WHEELS_ZERO)
+        self.currentTreadDepth: list[float] = list(WHEELS_ZERO)
+        self.lastLapTreadWear: list[float] = list(WHEELS_ZERO)
+        self.estimatedTreadWear: list[float] = list(WHEELS_ZERO)
+        self.estimatedValidTreadWear: list[float] = list(WHEELS_ZERO)
+        self.maxBrakeThickness: list[float] = list(WHEELS_ZERO)
+        self.currentBrakeThickness: list[float] = list(WHEELS_ZERO)
+        self.estimatedBrakeWear: list[float] = list(WHEELS_ZERO)
 
 
 class ModuleInfo:

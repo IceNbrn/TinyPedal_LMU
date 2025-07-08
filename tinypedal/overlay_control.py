@@ -32,47 +32,24 @@ from .setting import cfg
 logger = logging.getLogger(__name__)
 
 
-class StateTimer:
-    """State timer"""
+def state_timer(interval: float, last: float = 0):
+    """State timer
 
-    __slots__ = (
-        "_interval",
-        "_last",
-    )
-
-    def __init__(self, interval: float, last: float = 0) -> None:
-        """
-        Args:
-            interval: time interval in seconds.
-            last: last time stamp in seconds.
-        """
-        self._interval = interval
-        self._last = last
-
-    def timeout(self, seconds: float) -> bool:
-        """Check time out"""
-        if self._interval > seconds - self._last:
-            return False
-        self._last = seconds
-        return True
-
-    def reset(self, now: float = 0) -> None:
-        """Reset timer"""
-        self._last = now
-
-    def set_interval(self, interval: float) -> None:
-        """Set timer interval"""
-        self._interval = interval
-
-    @property
-    def interval(self) -> float:
-        """Timer interval"""
-        return self._interval
-
-    @property
-    def last(self) -> float:
-        """Timer last time stamp"""
-        return self._last
+    Args:
+        interval: time interval in seconds.
+        last: last time stamp in seconds.
+    Yield:
+        is_timeout: bool.
+    """
+    is_timeout = False
+    while True:
+        seconds = monotonic()
+        if seconds - last >= interval:
+            last = seconds
+            is_timeout = True
+        else:
+            is_timeout = False
+        yield is_timeout
 
 
 class OverlayState(QObject):
@@ -83,11 +60,13 @@ class OverlayState(QObject):
         hidden: signal for toggling auto hide state.
         locked: signal for toggling lock state.
         reload: signal for reloading preset, should only be emitted after app fully loaded.
+        paused: whether to pause/resume overlay timer.
         vr_compat: signal for toggling VR compatibility state.
     """
     hidden = Signal(bool)
     locked = Signal(bool)
     reload = Signal(bool)
+    paused = Signal(bool)
     vr_compat = Signal(bool)
 
     def __init__(self):
@@ -96,9 +75,9 @@ class OverlayState(QObject):
         self._stopped = True
         self._event = threading.Event()
 
-        self._auto_hide_timer = StateTimer(interval=0.4)
-        self._auto_load_preset_timer = StateTimer(interval=1.0)
         self._last_detected_sim = None
+        self._last_active_state = None
+        self._last_hide_state = None
 
     def start(self):
         """Start state update thread"""
@@ -119,47 +98,51 @@ class OverlayState(QObject):
         _event_wait = self._event.wait
         while not _event_wait(0.2):
             self.active = api.state
-            self.__auto_hide_state()
-            if cfg.application["enable_auto_load_preset"]:
-                self.__auto_load_preset()
+            # Auto hide state check
+            hide_state = cfg.overlay["auto_hide"] and not self.active
+            if self._last_hide_state != hide_state:
+                self._last_hide_state = hide_state
+                self.hidden.emit(hide_state)
+            # Active state check
+            if self._last_active_state != self.active:
+                self._last_active_state = self.active
+                # Update auto load state only once when player enters track
+                if self.active and cfg.application["enable_auto_load_preset"]:
+                    self.__auto_load_preset()
+                # Set overlay timer state
+                self.paused.emit(not self.active)
 
         self._stopped = True
         logger.info("DISABLED: overlay control")
 
-    def __auto_hide_state(self):
-        """Auto hide state"""
-        if self._auto_hide_timer.timeout(monotonic()):
-            self.hidden.emit(cfg.overlay["auto_hide"] and not self.active)
-
     def __auto_load_preset(self):
         """Auto load primary preset"""
-        if self._auto_load_preset_timer.timeout(monotonic()):
-            # Get sim_name, returns "" if no game running
-            sim_name = api.read.check.sim_name()
-            # Abort if game not found
-            if not sim_name:
-                # Clear detected name if no game found
-                if self._last_detected_sim is not None:
-                    self._last_detected_sim = None
-                return
-            # Abort if same as last found game
-            if sim_name == self._last_detected_sim:
-                return
-            # Assign sim name to last detected, set preset name
-            self._last_detected_sim = sim_name
-            preset_name = cfg.get_primary_preset_name(sim_name)
-            logger.info("USERDATA: %s detected, attempt loading %s (primary preset)", sim_name, preset_name)
-            # Abort if preset file does not exist
-            if preset_name == "":
-                logger.info("USERDATA: %s (primary preset) not found, abort auto loading", preset_name)
-                return
-            # Check if already loaded
-            if cfg.is_loaded(preset_name):
-                logger.info("USERDATA: %s (primary preset) already loaded", preset_name)
-                return
-            # Update preset name & signal reload
-            cfg.set_next_to_load(preset_name)
-            self.reload.emit(True)
+        # Get sim_name, returns "" if no game running
+        sim_name = api.read.check.sim_name()
+        # Abort if game not found
+        if not sim_name:
+            # Clear detected name if no game found
+            if self._last_detected_sim is not None:
+                self._last_detected_sim = None
+            return
+        # Abort if same as last found game
+        if sim_name == self._last_detected_sim:
+            return
+        # Assign sim name to last detected, set preset name
+        self._last_detected_sim = sim_name
+        preset_name = cfg.get_primary_preset_name(sim_name)
+        logger.info("USERDATA: %s detected, attempt loading %s (primary preset)", sim_name, preset_name)
+        # Abort if preset file does not exist
+        if preset_name == "":
+            logger.info("USERDATA: %s (primary preset) not found, abort auto loading", preset_name)
+            return
+        # Check if already loaded
+        if cfg.is_loaded(preset_name):
+            logger.info("USERDATA: %s (primary preset) already loaded", preset_name)
+            return
+        # Update preset name & signal reload
+        cfg.set_next_to_load(preset_name)
+        self.reload.emit(True)
 
 
 class OverlayControl:

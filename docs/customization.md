@@ -217,7 +217,7 @@ Data recording is handled by [Fuel Module](#fuel-module).
 ## Consumption history
 Consumption history data is stored as `CSV` format (.consumption extension) under `TinyPedal\deltabest` folder (default). Those files can be opened in spreadsheet or notepad programs.
 
-Consumption history data stores lap time and fuel consumption data per `track and vehicle class`, which can be loaded in [Fuel Calculator](#fuel-calculator). Up to 100 most recent lap entries are saved per `track and vehicle class`. Data recording is handled by [Fuel Module](#fuel-module).
+Consumption history data stores lap time, fuel consumption, battery charge, tyre wear usage data per `track and vehicle class`, which can be loaded in [Fuel Calculator](#fuel-calculator). Up to 100 most recent lap entries are saved per `track and vehicle class`. Data recording is handled by [Fuel Module](#fuel-module).
 
 [**`Back to Top`**](#)
 
@@ -398,7 +398,7 @@ Remember main window last position.
 Remember main window last size.
 
     enable_high_dpi_scaling
-Enable window dialog and overlay widget auto-scaling under high DPI screen resolution. This option requires restarting TinyPedal to take effect. This option is disabled by default.
+Enable window dialog and overlay widget auto-scaling under high DPI screen resolution. This option requires restarting TinyPedal to take effect. This option is enabled by default.
 
 High DPI scaling mode can be quickly toggled via `Scale` button on main window status bar.
 
@@ -656,7 +656,7 @@ On the left side is calculation panel, which handles `fuel` and `virtual energy`
 
 Fuel value and unit symbol depend on `Fuel Unit` setting from [Units](#units) config dialog, `L` = liter, `gal` = gallon. Virtual energy unit is `%` = percentage. Note, after changed `Fuel Unit` setting, it is required to close and reopen `Fuel calculator` in order to update units info for calculation.
 
-On the right side is fuel consumption history table, which lists `lap number`, `lap time`, `fuel consumption`, `virtual energy consumption`, `battery drain`, `battery regen`, `tank capacity` data from [Consumption History](#consumption-history) data.
+On the right side is fuel consumption history table, which lists `lap number`, `lap time`, `fuel consumption`, `virtual energy consumption`, `battery drain`, `battery regen`, `average tyre tread wear`, `tank capacity` data from [Consumption History](#consumption-history) data.
 Invalid lap time or consumption data is highlighted in red.
 
 Click `Load Live` button to load or update consumption history from live session to history table and automatically fill in latest data to calculator.
@@ -665,7 +665,7 @@ Click `Load File` button to load data from specific consumption history file to 
 
 Loaded data source and track and class name will be displayed on status bar.
 
-Select one or more `Time`, `Fuel`, `Energy`, `Tank` values from history table and click `Add selected data` button to send value to calculator.
+Select one or more `Time`, `Fuel`, `Energy`, `Tyre`, `Tank` values from history table and click `Add selected data` button to send value to calculator.
 
 Select multiple values from history table and click `Add selected data` button to calculate average reading of selected values and send to calculator.
 
@@ -700,7 +700,7 @@ Set average pit stop time in seconds.
 Show total required fuel or energy to finish race. First value is raw reading with decimal places, second value behind `≈` sign is rounded up integer reading.
 
     End stint fuel, End stint energy
-Show remaining fuel or energy at the end of stint or race.
+Show remaining fuel or energy at the end of stint.
 
     Total Pit stops
 Show total number of pit stops required to finish race. First value is raw reading with decimal places, second value behind `≈` sign is rounded up integer reading. Note, sometimes when `Average pit seconds` is set to longer duration, ceiling integer reading may be rounded up `2` units higher than raw reading, this is not an error. For example, it may show `5.978 ≈ 7` instead of `5.978 ≈ 6`, this is because when calculating from `6` pit stops, due to less amount time spent in pit stop compare to `7`, more fuel is required per pit stop which would exceed tank capacity, hence calculator adds 1 more pit stop.
@@ -708,17 +708,32 @@ Show total number of pit stops required to finish race. First value is raw readi
     One less pit stop
 Show theoretical fuel or energy consumption in order to make one less pit stop.
 
-    Total laps
-Show total laps can run based on `Total race fuel` or `Total race energy` value.
+    Total laps, Total minutes
+Show total laps and minutes can run based on `Total race fuel` or `Total race energy` value.
 
-    Total minutes
-Show total minutes can run based on `Total race fuel` or `Total race energy` value.
+    Max stint laps, Max stint minutes
+Show maximum laps and minutes can run per stint based on `Tank capacity` value (or 100% capacity for virtual energy).
 
     Starting fuel, Starting energy
 Set starting fuel or energy. This value is only used for calculating `Average refueling` or `Average replenishing` per pit stop. Maximum value cannot exceed `Tank capacity` for fuel, or `100%` for energy. If value is set to `0`, `Tank capacity` value will be used as starting fuel for `Average refueling` calculation.
 
     Average refueling, Average replenishing
 Show average refueling or replenishing per pit stop, and display warning color if value exceeds `Tank capacity` (fuel) or `100%` (energy).
+
+    Starting tyre tread
+Set average starting tyre tread (percent). For example, 100% for new tyres, and less for worn tyres.
+
+    Tread wear per lap
+Set average tyre tread wear (percent) per lap. This value can be retrieved from `Tyre` column.
+
+    Tread wear per stint
+Show total average tyre tread wear (percent) per stint. Note, while virtual energy is available, this value will be calculated based on the least `max stint laps` between fuel and virtual energy.
+
+    Lifespan laps, Lifespan minutes
+Show total tyre lifespan in laps and minutes based on `tread wear per lap` and `lap time`.
+
+    Lifespan stints
+Show estimated tyre lifespan in number of stints. Note, while virtual energy is available, this value will be calculated based on the least `max stint laps` between fuel and virtual energy.
 
 [**`Back to Top`**](#)
 
@@ -1052,7 +1067,7 @@ Modules provide important data that updated in real-time for other widgets. Widg
 Enable delta module.
 
     minimum_delta_distance
-Set minimum recording distance (in meters) between each delta sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
+Set minimum recording distance (in meters) between each lap time sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
 
     delta_smoothing_samples
 Set number of samples for delta data smoothing calculation using exponential moving average (EMA) method. Value range in `1` to `100`. Higher value results more smoothness, but may lose accuracy. Default is `30` samples. Set to `1` to disable smoothing.
@@ -1073,7 +1088,7 @@ Set additional margin for laptime pace that cannot exceed the sum of previous `l
 Enable energy module.
 
     minimum_delta_distance
-Set minimum recording distance (in meters) between each delta sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
+Set minimum recording distance (in meters) between each virtual energy usage sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
 
 [**`Back to Top`**](#)
 
@@ -1112,7 +1127,7 @@ Set time delay in seconds for resetting max braking rate. Default is `60` second
 Enable fuel module.
 
     minimum_delta_distance
-Set minimum recording distance (in meters) between each delta sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
+Set minimum recording distance (in meters) between each fuel usage sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
 
 [**`Back to Top`**](#)
 
@@ -1124,7 +1139,7 @@ Set minimum recording distance (in meters) between each delta sample. Default va
 Enable hybrid module.
 
     minimum_delta_distance
-Set minimum recording distance (in meters) between each delta sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
+Set minimum recording distance (in meters) between each battery charge usage sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
 
 [**`Back to Top`**](#)
 
@@ -1233,7 +1248,7 @@ Lap difference (percentage) threshold for tagging opponents as behind. Default i
 
 
 ## Wheels module
-**This module provides wheel radius and slip ratio data.**
+**This module provides wheel radius, slip ratio, tyre wear, brake wear data.**
 
     minimum_axle_rotation
 Set minimum axle rotation (radians per second) for calculating wheel radius and differential locking percent. Default value is `4`.
@@ -1243,6 +1258,9 @@ Set maximum rotation difference between left or right wheel rotation and same ax
 
     cornering_radius_sampling_interval
 Set position sampling interval for cornering radius calculation. Value range in `5` to `100`. Default sampling interval is `10`, which is roughly 200ms interval between each recorded position. Higher value may result inaccuracy. Note, this option does not affect position recording interval.
+
+    minimum_delta_distance
+Set minimum recording distance (in meters) between each tyre wear sample. Default value is `5` meters. Lower value may result more samples recorded and bigger file size; higher value may result less samples recorded and inaccuracy. Recommended value range in `5` to `10` meters.
 
 [**`Back to Top`**](#)
 
@@ -1408,13 +1426,7 @@ Some reference brake failure thickness threshold:
 Show total remaining brake in percentage that changes color according to wear.
 
     show_wear_difference
-Show total brake wear difference of previous lap.
-
-    show_live_wear_difference
-Show brake wear difference of current lap that constantly updated.
-
-    freeze_duration
-Set freeze duration (seconds) for displaying previous lap brake wear if `show_live_wear_difference` is enabled. Value range in `0` to `30` seconds. Default is `10` seconds.
+Show estimated brake wear difference per lap (at least one valid lap is required).
 
     show_lifespan_laps
 Show estimated brake lifespan in laps.
@@ -2003,6 +2015,18 @@ Set amount lap threshold to show low fuel indicator when total completable laps 
     warning_color_low_fuel
 Set low fuel color indicator, which changes widget background color when there is just 2 laps of fuel left.
 
+    show_low_fuel_warning_flash
+Show low fuel warning flash effect when below `low_fuel_lap_threshold`.
+
+    number_of_warning_flashes
+Set number of warning flashes that will be played for a limited number of times. Default is `10` flashes. Minimum value is limited to `3`.
+
+    warning_flash_highlight_duration
+Set color highlight duration for each warning flash. Default is `0.4` seconds. Minimum value is limited to `0.2`.
+
+    warning_flash_interval
+Set minimum time interval between each warning flash. Default is `0.4` seconds. Minimum value is limited to `0.2`.
+
     show_fuel_level_bar
 Show visualized horizontal fuel level bar.
 
@@ -2210,6 +2234,8 @@ Set percentage threshold for triggering wheel slip warning under acceleration. `
 
 ## Lap time history
 **This widget displays lap time history info.**
+
+This widget consists of four columns from left to right (default order): `Lap number`, `Lap time`, `Fuel or virtual energy consumption per lap`, `Average tyre wear per lap (percent)`.
 
     layout
 2 layouts are available: `0` = vertical layout, `1` = reversed vertical layout.
@@ -3057,6 +3083,8 @@ Show rotation line only while vehicle is stationary (less than 1m/s).
 ## Stint history
 **This widget displays stint history info.**
 
+This widget consists of five columns from left to right (default order): `Total completed laps`, `Total driving time`, `Total fuel or virtual energy consumption`, `Tyre compound`, `Total average tyre wear (percent)`.
+
     layout
 2 layouts are available: `0` = vertical layout, `1` = reversed vertical layout.
 
@@ -3441,22 +3469,21 @@ Show tyre compound symbols (front and rear) that matches specific tyre compounds
 2 layouts are available: `0` = vertical layout, `1` = horizontal layout.
 
     show_remaining
-Show total remaining tyre in percentage that changes color according to wear.
+Show total remaining tyre tread in percentage that changes color according to wear.
 
     show_wear_difference
-Show total tyre wear difference of previous lap.
-
-    show_live_wear_difference
-Show tyre wear difference of current lap that constantly updated.
-
-    freeze_duration
-Set freeze duration (seconds) for displaying previous lap tyre wear if `show_live_wear_difference` is enabled. Value range in `0` to `30` seconds. Default is `10` seconds.
+Show estimated tyre wear difference per lap (at least one valid lap is required).
 
     show_lifespan_laps
 Show estimated tyre lifespan in laps.
 
     show_lifespan_minutes
 Show estimated tyre lifespan in minutes.
+
+    show_end_stint_remaining
+Show estimated total remaining tyre tread at the end of current stint, which helps to determine whether there is enough tread for current or more stints. Negative reading indicates that there will not be enough tyre tread remaining at the end of current stint.
+
+For example, if minimum safe tyre tread is around 10%, then for triple-stint tyre saving, aim for 70% remaining tread for first stint, 40% for second stint, and 10% for third stint.
 
     warning_threshold_remaining
 Set warning threshold for total remaining tyre in percentage. Default is `30` percent.
@@ -3476,9 +3503,7 @@ Set warning threshold for estimated tyre lifespan in minutes. Default is `5` lap
 ## Virtual energy
 **This widget displays virtual energy usage info.**
 
-Note, most options are inherited from [Fuel](#fuel) widget, with some additions noted below.
-
-Virtual energy is not `real energy`, and different from `battery charge`. For battery charge usage info, see [Battery](#battery) widget.
+Note, most options are inherited from [Fuel](#fuel) widget, with some additions noted below. For battery charge usage info, see [Battery](#battery) widget.
 
     show_absolute_refilling
 Show absolute refilling value instead of relative refilling when enabled. Note, `+` or `-` sign is not displayed with absolute refilling.

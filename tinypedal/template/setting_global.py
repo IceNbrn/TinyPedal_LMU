@@ -20,6 +20,7 @@
 Default global (config) setting template
 """
 
+from ..const_app import APP_NAME, PLATFORM
 
 GLOBAL_DEFAULT = {
     "application": {
@@ -27,7 +28,7 @@ GLOBAL_DEFAULT = {
         "minimize_to_tray": True,
         "remember_position": True,
         "remember_size": True,
-        "enable_high_dpi_scaling": False,
+        "enable_high_dpi_scaling": True,
         "enable_auto_load_preset": False,
         "show_confirmation_for_batch_toggle": True,
         "grid_move_size": 8,
@@ -127,3 +128,31 @@ GLOBAL_DEFAULT = {
         "slope_grade_cliff": 1,
     },
 }
+
+
+def _set_platform_default(global_def: dict):
+    """Set platform default setting"""
+    if PLATFORM != "Windows":
+        # Global config
+        global_def["application"]["show_at_startup"] = True
+        global_def["application"]["minimize_to_tray"] = False
+        global_def["compatibility"]["enable_bypass_window_manager"] = True
+        global_def["compatibility"]["enable_x11_platform_plugin_override"] = True
+        # Global path
+        from xdg import BaseDirectory as BD
+
+        config_paths = (
+            "settings_path",
+            "brand_logo_path",
+            "pace_notes_path",
+            "track_notes_path",
+        )
+        user_path = global_def["user_path"]
+        for key, path in user_path.items():
+            if key in config_paths:
+                user_path[key] = BD.save_config_path(APP_NAME, path)
+            else:
+                user_path[key] = BD.save_data_path(APP_NAME, path)
+
+
+_set_platform_default(GLOBAL_DEFAULT)

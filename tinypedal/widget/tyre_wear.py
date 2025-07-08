@@ -21,7 +21,6 @@ Tyre Wear Widget
 """
 
 from .. import calculation as calc
-from ..api_control import api
 from ..const_common import TEXT_NA
 from ..module_info import minfo
 from ._base import Overlay
@@ -43,7 +42,6 @@ class Realtime(Overlay):
         # Config variable
         bar_padx = self.set_padding(self.wcfg["font_size"], self.wcfg["bar_padding"])
         bar_width = font_m.width * 4 + bar_padx
-        self.freeze_duration = min(max(self.wcfg["freeze_duration"], 0), 30)
 
         # Base style
         self.setStyleSheet(self.set_qss(
@@ -57,10 +55,10 @@ class Realtime(Overlay):
             font_size=int(self.wcfg['font_size'] * 0.8)
         )
 
-        # Remaining wear
+        # Remaining tyre tread
         if self.wcfg["show_remaining"]:
-            layout_wear = self.set_grid_layout()
-            self.bar_style_wear = (
+            layout_remain = self.set_grid_layout()
+            self.bar_style_remain = (
                 self.set_qss(
                     fg_color=self.wcfg["font_color_remaining"],
                     bg_color=self.wcfg["bkg_color_remaining"]),
@@ -68,28 +66,28 @@ class Realtime(Overlay):
                     fg_color=self.wcfg["font_color_warning"],
                     bg_color=self.wcfg["bkg_color_remaining"])
             )
-            self.bars_wear = self.set_qlabel(
+            self.bars_remain = self.set_qlabel(
                 text=TEXT_NA,
-                style=self.bar_style_wear[0],
+                style=self.bar_style_remain[0],
                 width=bar_width,
                 count=4,
                 last=0,
             )
             self.set_grid_layout_quad(
-                layout=layout_wear,
-                targets=self.bars_wear,
+                layout=layout_remain,
+                targets=self.bars_remain,
             )
             self.set_primary_orient(
-                target=layout_wear,
+                target=layout_remain,
                 column=self.wcfg["column_index_remaining"],
             )
 
             if self.wcfg["show_caption"]:
-                cap_wear = self.set_qlabel(
+                cap_remain = self.set_qlabel(
                     text="tyre wear",
                     style=bar_style_desc,
                 )
-                layout_wear.addWidget(cap_wear, 0, 0, 1, 0)
+                layout_remain.addWidget(cap_remain, 0, 0, 1, 0)
 
         # Wear difference
         if self.wcfg["show_wear_difference"]:
@@ -119,7 +117,7 @@ class Realtime(Overlay):
 
             if self.wcfg["show_caption"]:
                 cap_diff = self.set_qlabel(
-                    text="tyre diff",
+                    text="wear diff",
                     style=bar_style_desc,
                 )
                 layout_diff.addWidget(cap_diff, 0, 0, 1, 0)
@@ -190,77 +188,83 @@ class Realtime(Overlay):
                 )
                 layout_mins.addWidget(cap_mins, 0, 0, 1, 0)
 
-        # Last data
-        self.checked = False
-        self.last_lap_stime = 0  # last lap start time
-        self.wear_prev = [0] * 4  # previous moment remaining wear
-        self.wear_curr_lap = [0] * 4  # live wear update of current lap
-        self.wear_last_lap = [0] * 4  # total wear of last lap
+        # Estimated end stint remaining tyre tread
+        if self.wcfg["show_end_stint_remaining"]:
+            layout_end = self.set_grid_layout()
+            self.bar_style_end = (
+                self.set_qss(
+                    fg_color=self.wcfg["font_color_end_stint_remaining"],
+                    bg_color=self.wcfg["bkg_color_end_stint_remaining"]),
+                self.set_qss(
+                    fg_color=self.wcfg["font_color_warning"],
+                    bg_color=self.wcfg["bkg_color_end_stint_remaining"])
+            )
+            self.bars_end = self.set_qlabel(
+                text=TEXT_NA,
+                style=self.bar_style_end[0],
+                width=bar_width,
+                count=4,
+            )
+            self.set_grid_layout_quad(
+                layout=layout_end,
+                targets=self.bars_end,
+            )
+            self.set_primary_orient(
+                target=layout_end,
+                column=self.wcfg["column_index_end_stint_remaining"],
+            )
+
+            if self.wcfg["show_caption"]:
+                cap_end = self.set_qlabel(
+                    text="end tread",
+                    style=bar_style_desc,
+                )
+                layout_end.addWidget(cap_end, 0, 0, 1, 0)
 
     def timerEvent(self, event):
         """Update when vehicle on track"""
-        if self.state.active:
-
-            # Reset switch
-            if not self.checked:
-                self.checked = True
-
-            lap_stime = api.read.timing.start()
-            lap_etime = api.read.timing.elapsed()
-            wear_curr = api.read.tyre.wear(scale=100)
-
-            if lap_stime != self.last_lap_stime:
-                self.wear_last_lap = self.wear_curr_lap
-                self.wear_curr_lap = [0] * 4  # reset real time wear
-                self.last_lap_stime = lap_stime  # reset time stamp counter
-
-            for idx in range(4):
-                # Update wear differences & accumulated wear
-                wear_diff = self.wear_prev[idx] - wear_curr[idx]
-                self.wear_prev[idx] = wear_curr[idx]
-                if wear_diff > 0:
-                    self.wear_curr_lap[idx] += wear_diff
-
-                # Remaining wear
-                if self.wcfg["show_remaining"]:
-                    self.update_wear(self.bars_wear[idx], wear_curr[idx])
-
-                # Wear differences
-                if self.wcfg["show_wear_difference"]:
-                    if (self.wcfg["show_live_wear_difference"] and
-                        lap_etime - lap_stime > self.freeze_duration):
-                        self.update_diff(self.bars_diff[idx], self.wear_curr_lap[idx])
-                    else:  # Last lap diff
-                        self.update_diff(self.bars_diff[idx], self.wear_last_lap[idx])
-
-                # Estimated lifespan in laps
-                if self.wcfg["show_lifespan_laps"]:
-                    wear_laps = calc.wear_lifespan_in_laps(
-                        wear_curr[idx], self.wear_last_lap[idx], self.wear_curr_lap[idx])
-                    self.update_laps(self.bars_laps[idx], wear_laps)
-
-                # Estimated lifespan in minutes
-                if self.wcfg["show_lifespan_minutes"]:
-                    wear_mins = calc.wear_lifespan_in_mins(
-                        wear_curr[idx], self.wear_last_lap[idx], self.wear_curr_lap[idx],
-                        minfo.delta.lapTimePace)
-                    self.update_mins(self.bars_mins[idx], wear_mins)
-
+        laptime_pace = minfo.delta.lapTimePace
+        if minfo.restapi.maxVirtualEnergy:
+            est_runlaps = min(minfo.fuel.estimatedLaps, minfo.energy.estimatedLaps)
         else:
-            if self.checked:
-                self.checked = False
-                self.wear_prev = [0] * 4
-                self.wear_curr_lap = [0] * 4
-                self.wear_last_lap = [0] * 4
+            est_runlaps = minfo.fuel.estimatedLaps
+
+        for idx in range(4):
+            tread_curr = minfo.wheels.currentTreadDepth[idx]
+            est_wear = minfo.wheels.estimatedTreadWear[idx]
+            est_valid_wear = minfo.wheels.estimatedValidTreadWear[idx]
+
+            # Remaining tyre tread
+            if self.wcfg["show_remaining"]:
+                self.update_remain(self.bars_remain[idx], tread_curr)
+
+            # Wear differences
+            if self.wcfg["show_wear_difference"]:
+                self.update_diff(self.bars_diff[idx], est_wear)
+
+            # Estimated lifespan in laps
+            if self.wcfg["show_lifespan_laps"]:
+                wear_laps = calc.wear_lifespan_in_laps(tread_curr, est_valid_wear)
+                self.update_laps(self.bars_laps[idx], wear_laps)
+
+            # Estimated lifespan in minutes
+            if self.wcfg["show_lifespan_minutes"]:
+                wear_mins = calc.wear_lifespan_in_mins(tread_curr, est_valid_wear, laptime_pace)
+                self.update_mins(self.bars_mins[idx], wear_mins)
+
+            # Estimated end stint remaining tyre tread
+            if self.wcfg["show_end_stint_remaining"]:
+                end_remain = calc.end_stint_tread(tread_curr, est_valid_wear, est_runlaps)
+                self.update_end(self.bars_end[idx], end_remain)
 
     # GUI update methods
-    def update_wear(self, target, data):
-        """Remaining wear"""
+    def update_remain(self, target, data):
+        """Remaining tyre tread"""
         if target.last != data:
             target.last = data
             target.setText(self.format_num(data))
             target.setStyleSheet(
-                self.bar_style_wear[data <= self.wcfg["warning_threshold_remaining"]]
+                self.bar_style_remain[data <= self.wcfg["warning_threshold_remaining"]]
             )
 
     def update_diff(self, target, data):
@@ -288,6 +292,15 @@ class Realtime(Overlay):
             target.setText(self.format_num(data))
             target.setStyleSheet(
                 self.bar_style_mins[data <= self.wcfg["warning_threshold_minutes"]]
+            )
+
+    def update_end(self, target, data):
+        """End stint remaining tyre tread"""
+        if target.last != data:
+            target.last = data
+            target.setText(self.format_num(data))
+            target.setStyleSheet(
+                self.bar_style_end[data <= self.wcfg["warning_threshold_remaining"]]
             )
 
     # Additional methods

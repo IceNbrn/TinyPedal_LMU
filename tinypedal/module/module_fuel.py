@@ -30,12 +30,15 @@ from ..api_control import api
 from ..const_common import DELTA_DEFAULT, DELTA_ZERO, FLOAT_INF, POS_XYZ_ZERO
 from ..const_file import FileExt
 from ..module_info import ConsumptionDataSet, FuelInfo, minfo
-from ..userfile.fuel_delta import (
+from ..userfile.consumption_history import (
     load_consumption_history_file,
-    load_fuel_delta_file,
     save_consumption_history_file,
+)
+from ..userfile.fuel_delta import (
+    load_fuel_delta_file,
     save_fuel_delta_file,
 )
+from ..validator import generator_init, valid_delta_raw
 from ._base import DataModule, round6
 
 
@@ -63,15 +66,14 @@ class Realtime(DataModule):
                     update_interval = self.active_interval
 
                     combo_id = api.read.check.combo_id()
-                    gen_calc_fuel = calc_data(
+                    gen_calc_fuel = calc_consumption(
                         output=minfo.fuel,
-                        telemetry_func=telemetry_fuel,
+                        telemetry_func=detect_consumption_type(),
                         filepath=userpath_fuel_delta,
                         filename=combo_id,
                         extension=FileExt.FUEL,
                         min_delta_distance=self.mcfg["minimum_delta_distance"],
                     )
-                    next(gen_calc_fuel)
                     # Reset module output
                     minfo.fuel.reset()
                     load_consumption_history(userpath_fuel_delta, combo_id)
@@ -104,6 +106,7 @@ def update_consumption_history():
                 lastLapUsedEnergy=minfo.energy.lastLapConsumption,
                 batteryDrainLast=minfo.hybrid.batteryDrainLast,
                 batteryRegenLast=minfo.hybrid.batteryRegenLast,
+                tyreAvgWearLast=calc.mean(minfo.wheels.lastLapTreadWear),
                 capacityFuel=minfo.fuel.capacity,
             )
         )
@@ -135,31 +138,47 @@ def save_consumption_history(filepath: str, combo_id: str):
         minfo.history.consumptionDataModified = False
 
 
+def detect_consumption_type() -> Callable:
+    """Detect consumption type, return telemetry function"""
+    # Pure electric based vehicle
+    if (
+        api.read.check.sim_name() == "RF2"
+        and api.read.vehicle.tank_capacity() == 1
+        and api.read.emotor.battery_charge() > 0
+    ):
+        return telemetry_battery
+    # Fuel based vehicle
+    return telemetry_fuel
+
+
 def telemetry_fuel() -> tuple[float, float]:
     """Telemetry fuel"""
-    capacity = api.read.vehicle.tank_capacity()
-    if capacity == 1 or capacity == 0:  # pure electric powered vehicle
-        return 100, api.read.emotor.battery_charge() * 100
-    return capacity, api.read.vehicle.fuel()
+    return max(api.read.vehicle.tank_capacity(), 0.01), api.read.vehicle.fuel()
 
 
-def calc_data(
+def telemetry_battery() -> tuple[float, float]:
+    """Telemetry battery, capacity is always 100%"""
+    return 100, api.read.emotor.battery_charge() * 100
+
+
+@generator_init
+def calc_consumption(
     output: FuelInfo, telemetry_func: Callable, filepath: str, filename: str, extension: str,
     min_delta_distance: float):
-    """Calculate data"""
+    """Calculate consumption data"""
     recording = False
     delayed_save = False
     validating = 0
     is_pit_lap = 0  # whether pit in or pit out lap
 
-    delta_list_last, used_last_valid, laptime_last = load_fuel_delta_file(
+    delta_array_last, used_last_valid, laptime_last = load_fuel_delta_file(
         filepath=filepath,
         filename=filename,
         extension=extension,
         defaults=(DELTA_DEFAULT, 0.0, 0.0)
     )
-    delta_list_raw = [DELTA_ZERO]  # distance, fuel used, laptime
-    delta_list_temp = DELTA_DEFAULT  # last lap temp
+    delta_array_raw = [DELTA_ZERO]  # distance, fuel used, laptime
+    delta_array_temp = DELTA_DEFAULT  # last lap temp
     delta_fuel = 0.0  # delta fuel consumption compare to last lap
 
     amount_start = -FLOAT_INF  # start fuel reading
@@ -196,7 +215,7 @@ def calc_data(
                     filepath=filepath,
                     filename=filename,
                     extension=extension,
-                    dataset=delta_list_last,
+                    dataset=delta_array_last,
                 )
             continue
 
@@ -229,16 +248,15 @@ def calc_data(
 
         # Lap start & finish detection
         if lap_stime > last_lap_stime:
-            if len(delta_list_raw) > 1 and not is_pit_lap:
-                delta_list_raw.append((  # set end value
+            if not is_pit_lap and valid_delta_raw(delta_array_raw, used_curr, 1):
+                delta_array_raw.append((  # set end value
                     round6(pos_last + 10),
                     round6(used_curr),
                     round6(lap_stime - last_lap_stime)
                 ))
-                delta_list_temp = tuple(delta_list_raw)
+                delta_array_temp = tuple(delta_array_raw)
                 validating = api.read.timing.elapsed()
-            delta_list_raw.clear()  # reset
-            delta_list_raw.append(DELTA_ZERO)
+            delta_array_raw[:] = DELTA_DEFAULT
             pos_last = pos_recorded = pos_curr
             used_last_raw = used_curr
             used_curr = 0
@@ -253,7 +271,7 @@ def calc_data(
         # Update if position value is different & positive
         if 0 <= pos_curr != pos_last:
             if recording and pos_curr - pos_recorded >= min_delta_distance:
-                delta_list_raw.append((round6(pos_curr), round6(used_curr)))
+                delta_array_raw.append((round6(pos_curr), round6(used_curr)))
                 pos_recorded = pos_curr
             pos_last = pos_curr  # reset last position
             is_pos_synced = True
@@ -261,14 +279,14 @@ def calc_data(
         # Validating 1s after passing finish line
         if validating:
             timer = api.read.timing.elapsed() - validating
-            if (0.3 < timer <= 3 and  # compare current time
+            if timer > 3:  # switch off after 3s
+                validating = 0
+            elif (timer > 0.3 and  # compare current time
                 api.read.timing.last_laptime() > 0):  # is valid laptime
                 used_last_valid = used_last_raw
-                delta_list_last = delta_list_temp
-                delta_list_temp = DELTA_DEFAULT
+                delta_array_last = delta_array_temp
+                delta_array_temp = DELTA_DEFAULT
                 delayed_save = True
-                validating = 0
-            elif timer > 3:  # switch off after 3s
                 validating = 0
 
         # Calc delta
@@ -281,7 +299,7 @@ def calc_data(
             gps_last = gps_curr
             # Update delta
             delta_fuel = calc.delta_telemetry(
-                delta_list_last,
+                delta_array_last,
                 pos_estimate,
                 used_curr,
                 laptime_curr > 0.3 and not in_garage,  # 300ms delay

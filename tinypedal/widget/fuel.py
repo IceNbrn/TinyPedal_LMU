@@ -21,9 +21,11 @@ Fuel Widget
 """
 
 from .. import calculation as calc
+from ..api_control import api
 from ..module_info import minfo
 from ..units import set_unit_fuel
 from ._base import Overlay
+from ._common import WarningFlash
 from ._painter import FuelLevelBar
 
 
@@ -263,69 +265,83 @@ class Realtime(Overlay):
         layout_lower.addWidget(self.bar_save, 1, 3)
         layout_lower.addWidget(self.bar_end, 1, 4)
 
+        # Last data
+        self.warn_flash = WarningFlash(
+            self.wcfg["warning_flash_highlight_duration"],
+            self.wcfg["warning_flash_interval"],
+            self.wcfg["number_of_warning_flashes"],
+        )
+
     def timerEvent(self, event):
         """Update when vehicle on track"""
-        if self.state.active:
-            is_low_fuel = minfo.fuel.estimatedLaps <= self.wcfg["low_fuel_lap_threshold"]
-
-            # Estimated end remaining
-            amount_end = self.unit_fuel(minfo.fuel.amountEndStint)
-            self.update_fuel(self.bar_end, amount_end)
-
-            # Remaining
-            amount_curr = self.unit_fuel(minfo.fuel.amountCurrent)
-            self.update_fuel(self.bar_curr, amount_curr, self.bar_style_curr[is_low_fuel])
-
-            # Total needed
-            if self.wcfg["show_absolute_refueling"]:
-                amount_need = calc.sym_max(self.unit_fuel(minfo.fuel.neededAbsolute), 9999)
-                self.update_fuel(self.bar_need, amount_need, self.bar_style_need[is_low_fuel])
+        is_low_fuel = minfo.fuel.estimatedLaps <= self.wcfg["low_fuel_lap_threshold"]
+        if self.wcfg["show_low_fuel_warning_flash"] and minfo.fuel.estimatedValidConsumption:
+            is_low_fuel = self.warn_flash.state(api.read.timing.elapsed(), is_low_fuel)
+            if is_low_fuel:
+                padding = 0.00000001  # add padding for switching state
             else:
-                amount_need = calc.sym_max(self.unit_fuel(minfo.fuel.neededRelative), 9999)
-                self.update_fuel(self.bar_need, amount_need, self.bar_style_need[is_low_fuel], "+")
+                padding = 0
+        else:
+            padding = 0
 
-            # Estimated consumption
-            used_last = self.unit_fuel(minfo.fuel.estimatedConsumption)
-            self.update_fuel(self.bar_used, used_last)
+        # Estimated end remaining
+        amount_end = self.unit_fuel(minfo.fuel.amountEndStint)
+        self.update_fuel(self.bar_end, amount_end)
 
-            # Delta consumption
-            delta_fuel = self.unit_fuel(minfo.fuel.deltaConsumption)
-            self.update_fuel(self.bar_delta, delta_fuel, None, "+")
+        # Remaining
+        amount_curr = self.unit_fuel(minfo.fuel.amountCurrent)
+        self.update_fuel(self.bar_curr, amount_curr + padding, self.bar_style_curr[is_low_fuel])
 
-            # Estimate pit stop counts when pitting at end of current lap
-            est_pits_early = calc.zero_max(minfo.fuel.estimatedNumPitStopsEarly, 99.99)
-            self.update_fuel(self.bar_early, est_pits_early)
+        # Total needed
+        if self.wcfg["show_absolute_refueling"]:
+            amount_need = calc.sym_max(self.unit_fuel(minfo.fuel.neededAbsolute), 9999)
+            self.update_fuel(self.bar_need, amount_need + padding, self.bar_style_need[is_low_fuel])
+        else:
+            amount_need = calc.sym_max(self.unit_fuel(minfo.fuel.neededRelative), 9999)
+            self.update_fuel(self.bar_need, amount_need + padding, self.bar_style_need[is_low_fuel], "+")
 
-            # Estimated laps can last
-            est_runlaps = min(minfo.fuel.estimatedLaps, 9999)
-            self.update_fuel(self.bar_laps, est_runlaps)
+        # Estimated consumption
+        used_last = self.unit_fuel(minfo.fuel.estimatedConsumption)
+        self.update_fuel(self.bar_used, used_last)
 
-            # Estimated minutes can last
-            est_runmins = min(minfo.fuel.estimatedMinutes, 9999)
-            self.update_fuel(self.bar_mins, est_runmins)
+        # Delta consumption
+        delta_fuel = self.unit_fuel(minfo.fuel.deltaConsumption)
+        self.update_fuel(self.bar_delta, delta_fuel, None, "+")
 
-            # Estimated one less pit consumption
-            fuel_save = calc.zero_max(self.unit_fuel(minfo.fuel.oneLessPitConsumption), 99.99)
-            self.update_fuel(self.bar_save, fuel_save)
+        # Estimate pit stop counts when pitting at end of current lap
+        est_pits_early = calc.zero_max(minfo.fuel.estimatedNumPitStopsEarly, 99.99)
+        self.update_fuel(self.bar_early, est_pits_early)
 
-            # Estimate pit stop counts when pitting at end of current stint
-            est_pits_end = calc.zero_max(minfo.fuel.estimatedNumPitStopsEnd, 99.99)
-            self.update_fuel(self.bar_pits, est_pits_end)
+        # Estimated laps can last
+        est_runlaps = min(minfo.fuel.estimatedLaps, 9999)
+        self.update_fuel(self.bar_laps, est_runlaps)
 
-            # Fuel level bar
-            if self.wcfg["show_fuel_level_bar"]:
-                level_capacity = minfo.fuel.capacity
-                level_curr = minfo.fuel.amountCurrent
-                level_start = minfo.fuel.amountStart
-                level_refill = level_curr + minfo.fuel.neededRelative
-                level_state = round(level_curr + level_start + level_refill, 3)
-                if level_capacity and self.bar_level.last != level_state:
-                    self.bar_level.last = level_state
-                    self.bar_level.update_input(
-                        level_curr / level_capacity,
-                        level_start / level_capacity,
-                        level_refill / level_capacity,
-                    )
+        # Estimated minutes can last
+        est_runmins = min(minfo.fuel.estimatedMinutes, 9999)
+        self.update_fuel(self.bar_mins, est_runmins)
+
+        # Estimated one less pit consumption
+        fuel_save = calc.zero_max(self.unit_fuel(minfo.fuel.oneLessPitConsumption), 99.99)
+        self.update_fuel(self.bar_save, fuel_save)
+
+        # Estimate pit stop counts when pitting at end of current stint
+        est_pits_end = calc.zero_max(minfo.fuel.estimatedNumPitStopsEnd, 99.99)
+        self.update_fuel(self.bar_pits, est_pits_end)
+
+        # Fuel level bar
+        if self.wcfg["show_fuel_level_bar"]:
+            level_capacity = minfo.fuel.capacity
+            level_curr = minfo.fuel.amountCurrent
+            level_start = minfo.fuel.amountStart
+            level_refill = level_curr + minfo.fuel.neededRelative
+            level_state = round(level_curr + level_start + level_refill, 3)
+            if level_capacity and self.bar_level.last != level_state:
+                self.bar_level.last = level_state
+                self.bar_level.update_input(
+                    level_curr / level_capacity,
+                    level_start / level_capacity,
+                    level_refill / level_capacity,
+                )
 
     # GUI update methods
     def update_fuel(self, target, data, color=None, sign=""):
